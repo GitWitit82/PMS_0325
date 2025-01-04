@@ -1,0 +1,120 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model for authentication and user management
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  password      String
+  role          Role      @default(USER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  projects      Project[] // Projects user is assigned to
+  tasks         Task[]    // Tasks assigned to user
+  
+  @@map("users")
+}
+
+// Workflow template that can be reused
+model Workflow {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  phases      Phase[]
+  projects    Project[]
+
+  @@map("workflows")
+}
+
+// Phase within a workflow
+model Phase {
+  id          String    @id @default(cuid())
+  name        String
+  order       Int
+  workflowId  String
+  workflow    Workflow  @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  tasks       Task[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("phases")
+}
+
+// Task within a phase
+model Task {
+  id                String    @id @default(cuid())
+  name              String
+  description       String?
+  phaseId          String
+  phase            Phase     @relation(fields: [phaseId], references: [id], onDelete: Cascade)
+  assignedToId     String?
+  assignedTo       User?     @relation(fields: [assignedToId], references: [id])
+  status           TaskStatus @default(PENDING)
+  priority         Priority   @default(MEDIUM)
+  manHours         Float?
+  scheduledStart   DateTime?
+  scheduledEnd     DateTime?
+  actualStart      DateTime?
+  actualEnd        DateTime?
+  formTemplate     Json?      // Stores form template in JSON
+  formResponse     Json?      // Stores form response in JSON
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  @@map("tasks")
+}
+
+// Project instance created from a workflow
+model Project {
+  id          String    @id @default(cuid())
+  name        String
+  workflowId  String
+  workflow    Workflow  @relation(fields: [workflowId], references: [id])
+  status      ProjectStatus @default(ACTIVE)
+  startDate   DateTime
+  endDate     DateTime?
+  assignedToId String?
+  assignedTo   User?     @relation(fields: [assignedToId], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("projects")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  USER
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  DELAYED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ProjectStatus {
+  ACTIVE
+  COMPLETED
+  ON_HOLD
+  CANCELLED
+}

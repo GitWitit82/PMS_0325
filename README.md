@@ -1,4 +1,38 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Workflow Template and Project Management System
+
+A scalable project management system built with Next.js, ShadCN, Prisma ORM, and PostgreSQL. The system allows admins to create reusable workflows with phases, tasks, and associated forms/checklists.
+
+## Features
+
+- 🔄 Workflow Management
+- 📋 Project Creation and Tracking
+- ✅ Task and Form Management
+- 👥 User Management with Role-based Access
+- 📊 Dashboards and Analytics
+
+## Tech Stack
+
+- **Frontend:** Next.js, ShadCN (Radix + TailwindCSS)
+- **Backend:** Next.js API routes using Prisma ORM
+- **Database:** PostgreSQL
+- **Authentication:** NextAuth (JWT-based)
+- **Form Handling:** React Hook Form, Zod Validation
+- **Styling:** TailwindCSS
+
+## Prerequisites
+
+- Node.js 18+ and npm
+- PostgreSQL 15
+- pgAdmin (for database management)
+
+## Environment Setup
+
+1. Create a `.env` file in the root directory with the following variables:
+```bash
+DATABASE_URL="postgresql://postgres:password@localhost:5432/WorkFlowPMS"
+NEXTAUTH_SECRET="your-secret-key"
+NEXTAUTH_URL="http://localhost:3000"
+```
 
 ## Getting Started
 
