@@ -438,9 +438,8 @@ model Resource {
 }
 
 enum ResourceType {
-  HUMAN
+  PERSON
   MACHINE
-  FACILITY
   OTHER
 }
 
