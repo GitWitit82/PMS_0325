@@ -1,21 +1,19 @@
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
-import { db } from "@/lib/db"
-import { compare } from "bcrypt"
-import { Role } from "@prisma/client"
+import bcrypt from "bcryptjs"
+import { prisma } from "@/lib/db"
 
 /**
  * NextAuth configuration options
  */
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(db),
+  adapter: PrismaAdapter(prisma),
   session: {
-    strategy: "jwt",
+    strategy: "jwt"
   },
   pages: {
-    signIn: "/auth/login",
-    error: "/auth/error",
+    signIn: "/login",
   },
   providers: [
     CredentialsProvider({
@@ -26,26 +24,26 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          return null
+          throw new Error("Invalid credentials")
         }
 
-        const user = await db.user.findUnique({
+        const user = await prisma.user.findUnique({
           where: {
             email: credentials.email
           }
         })
 
-        if (!user) {
-          return null
+        if (!user || !user.password) {
+          throw new Error("User not found")
         }
 
-        const isPasswordValid = await compare(
+        const isPasswordValid = await bcrypt.compare(
           credentials.password,
           user.password
         )
 
         if (!isPasswordValid) {
-          return null
+          throw new Error("Invalid password")
         }
 
         return {
@@ -58,14 +56,13 @@ export const authOptions: NextAuthOptions = {
     })
   ],
   callbacks: {
-    async session({ token, session }) {
+    async session({ session, token }) {
       if (token) {
         session.user.id = token.id
         session.user.name = token.name
         session.user.email = token.email
         session.user.role = token.role
       }
-
       return session
     },
     async jwt({ token, user }) {
@@ -73,7 +70,6 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id
         token.role = user.role
       }
-
       return token
     }
   }

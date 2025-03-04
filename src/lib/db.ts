@@ -1,18 +1,14 @@
 import { PrismaClient } from "@prisma/client"
 
-/**
- * Global Prisma Client instance
- */
 declare global {
-  var cachedPrisma: PrismaClient
+  var prisma: PrismaClient | undefined
 }
 
-export let db: PrismaClient
-if (process.env.NODE_ENV === "production") {
-  db = new PrismaClient()
-} else {
-  if (!global.cachedPrisma) {
-    global.cachedPrisma = new PrismaClient()
-  }
-  db = global.cachedPrisma
+/**
+ * Prisma client instance with connection pooling in development
+ */
+export const prisma = globalThis.prisma || new PrismaClient()
+
+if (process.env.NODE_ENV !== "production") {
+  globalThis.prisma = prisma
 } 

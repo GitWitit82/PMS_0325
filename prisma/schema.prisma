@@ -1,5 +1,5 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// This is the Prisma schema for the Comprehensive Resource and Project Management System
+// It defines all database models and their relationships
 
 generator client {
   provider = "prisma-client-js"
@@ -10,111 +10,540 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// User model for authentication and user management
+// ==================== User and Organization Models ====================
+
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String    @unique
-  password      String
-  role          Role      @default(USER)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  projects      Project[] // Projects user is assigned to
-  tasks         Task[]    // Tasks assigned to user
-  
-  @@map("users")
+  id                    String                 @id @default(uuid())
+  email                 String                 @unique
+  name                  String
+  password              String                 // Hashed password
+  role                  UserRole               @default(TEAM_MEMBER)
+  isActive              Boolean                @default(true)
+  avatar                String?                // URL to avatar image
+  skills                Json?                  // JSON array of skills
+  department            Department?            @relation(fields: [departmentId], references: [id])
+  departmentId          String?
+  managedDepartments    Department[]           @relation("DepartmentManager")
+  createdProjects       Project[]              @relation("ProjectCreator")
+  assignedTasks         ProjectTask[]          @relation("TaskAssignee")
+  createdWorkflows      Workflow[]             @relation("WorkflowCreator")
+  createdFormTemplates  FormTemplate[]         @relation("FormTemplateCreator")
+  formSubmissions       FormSubmission[]       @relation("FormSubmitter")
+  completedChecklistItems ChecklistItem[]      @relation("ChecklistItemCompleter")
+  receivedNotifications Notification[]         @relation("NotificationReceiver")
+  notificationPreferences NotificationPreference[]
+  availability          UserAvailability[]
+  resourceAllocations   ResourceAllocation[]   @relation("ResourceUser")
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+
+  @@index([departmentId])
+  @@index([email])
 }
 
-// Workflow template that can be reused
+enum UserRole {
+  ADMINISTRATOR
+  MANAGER
+  SUPERVISOR
+  TEAM_MEMBER
+  VIEWER
+}
+
+model Department {
+  id                  String      @id @default(uuid())
+  name                String
+  description         String?
+  manager             User?       @relation("DepartmentManager", fields: [managerId], references: [id])
+  managerId           String?
+  parentDepartment    Department? @relation("DepartmentHierarchy", fields: [parentDepartmentId], references: [id])
+  parentDepartmentId  String?
+  childDepartments    Department[] @relation("DepartmentHierarchy")
+  users               User[]
+  projects            Project[]
+  resources           Resource[]
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  @@index([managerId])
+  @@index([parentDepartmentId])
+}
+
+model UserAvailability {
+  id          String               @id @default(uuid())
+  user        User                 @relation(fields: [userId], references: [id])
+  userId      String
+  status      AvailabilityStatus
+  startDate   DateTime
+  endDate     DateTime
+  reason      String?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@index([userId])
+  @@index([startDate, endDate])
+}
+
+enum AvailabilityStatus {
+  AVAILABLE
+  PARTIALLY_AVAILABLE
+  UNAVAILABLE
+  TIME_OFF
+}
+
+// ==================== Workflow Template Models ====================
+
 model Workflow {
-  id          String    @id @default(cuid())
-  name        String
-  description String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  phases      Phase[]
-  projects    Project[]
+  id            String           @id @default(uuid())
+  name          String
+  description   String?
+  version       String           @default("1.0")
+  isActive      Boolean          @default(true)
+  createdBy     User             @relation("WorkflowCreator", fields: [createdById], references: [id])
+  createdById   String
+  phases        WorkflowPhase[]
+  projects      Project[]
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
 
-  @@map("workflows")
+  @@index([createdById])
 }
 
-// Phase within a workflow
-model Phase {
-  id          String    @id @default(cuid())
-  name        String
-  order       Int
-  workflowId  String
-  workflow    Workflow  @relation(fields: [workflowId], references: [id], onDelete: Cascade)
-  tasks       Task[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  @@map("phases")
-}
-
-// Task within a phase
-model Task {
-  id                String    @id @default(cuid())
+model WorkflowPhase {
+  id                String           @id @default(uuid())
+  workflow          Workflow         @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  workflowId        String
   name              String
   description       String?
-  phaseId          String
-  phase            Phase     @relation(fields: [phaseId], references: [id], onDelete: Cascade)
-  assignedToId     String?
-  assignedTo       User?     @relation(fields: [assignedToId], references: [id])
-  status           TaskStatus @default(PENDING)
-  priority         Priority   @default(MEDIUM)
-  manHours         Float?
-  scheduledStart   DateTime?
-  scheduledEnd     DateTime?
-  actualStart      DateTime?
-  actualEnd        DateTime?
-  formTemplate     Json?      // Stores form template in JSON
-  formResponse     Json?      // Stores form response in JSON
-  createdAt        DateTime   @default(now())
-  updatedAt        DateTime   @updatedAt
+  order             Int
+  estimatedDuration Int?             // In days
+  tasks             WorkflowTask[]
+  projectPhases     ProjectPhase[]
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
 
-  @@map("tasks")
+  @@index([workflowId])
+  @@index([workflowId, order])
 }
 
-// Project instance created from a workflow
-model Project {
-  id          String    @id @default(cuid())
-  name        String
-  workflowId  String
-  workflow    Workflow  @relation(fields: [workflowId], references: [id])
-  status      ProjectStatus @default(ACTIVE)
-  startDate   DateTime
-  endDate     DateTime?
-  assignedToId String?
-  assignedTo   User?     @relation(fields: [assignedToId], references: [id])
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+model WorkflowTask {
+  id                String               @id @default(uuid())
+  phase             WorkflowPhase        @relation(fields: [phaseId], references: [id], onDelete: Cascade)
+  phaseId           String
+  name              String
+  description       String?
+  estimatedHours    Float
+  priority          TaskPriority         @default(MEDIUM)
+  requiredSkills    Json?                // JSON array of required skills
+  formTemplateJson  Json?                // JSON schema for dynamic form
+  dependsOn         TaskDependency[]     @relation("DependencySource")
+  dependedOnBy      TaskDependency[]     @relation("DependencyTarget")
+  projectTasks      ProjectTask[]
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
 
-  @@map("projects")
+  @@index([phaseId])
 }
 
-enum Role {
-  ADMIN
-  MANAGER
-  USER
+model TaskDependency {
+  id                String               @id @default(uuid())
+  sourceTask        WorkflowTask         @relation("DependencySource", fields: [sourceTaskId], references: [id], onDelete: Cascade)
+  sourceTaskId      String
+  targetTask        WorkflowTask         @relation("DependencyTarget", fields: [targetTaskId], references: [id], onDelete: Cascade)
+  targetTaskId      String
+  dependencyType    DependencyType       @default(FINISH_TO_START)
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  @@unique([sourceTaskId, targetTaskId])
+  @@index([sourceTaskId])
+  @@index([targetTaskId])
 }
 
-enum TaskStatus {
-  PENDING
-  IN_PROGRESS
-  COMPLETED
-  DELAYED
+enum DependencyType {
+  FINISH_TO_START   // Most common: Task B cannot start until Task A completes
+  START_TO_START    // Task B cannot start until Task A starts
+  FINISH_TO_FINISH  // Task B cannot finish until Task A finishes
+  START_TO_FINISH   // Task B cannot finish until Task A starts
 }
 
-enum Priority {
+enum TaskPriority {
   LOW
   MEDIUM
   HIGH
+  CRITICAL
+}
+
+// ==================== Project Execution Models ====================
+
+model Project {
+  id              String           @id @default(uuid())
+  workflow        Workflow         @relation(fields: [workflowId], references: [id])
+  workflowId      String
+  name            String
+  description     String?
+  status          ProjectStatus    @default(PLANNING)
+  startDate       DateTime
+  endDate         DateTime
+  department      Department?      @relation(fields: [departmentId], references: [id])
+  departmentId    String?
+  priority        TaskPriority     @default(MEDIUM)
+  metadata        Json?            // Additional project properties as JSON
+  createdBy       User             @relation("ProjectCreator", fields: [createdById], references: [id])
+  createdById     String
+  phases          ProjectPhase[]
+  resourceAllocations ResourceAllocation[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([workflowId])
+  @@index([departmentId])
+  @@index([createdById])
+  @@index([status])
 }
 
 enum ProjectStatus {
-  ACTIVE
-  COMPLETED
+  PLANNING
+  IN_PROGRESS
   ON_HOLD
+  COMPLETED
   CANCELLED
+}
+
+model ProjectPhase {
+  id                String           @id @default(uuid())
+  project           Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId         String
+  workflowPhase     WorkflowPhase    @relation(fields: [workflowPhaseId], references: [id])
+  workflowPhaseId   String
+  name              String
+  description       String?
+  order             Int
+  status            PhaseStatus      @default(NOT_STARTED)
+  actualStartDate   DateTime?
+  actualEndDate     DateTime?
+  tasks             ProjectTask[]
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([projectId])
+  @@index([workflowPhaseId])
+  @@index([projectId, order])
+}
+
+enum PhaseStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  ON_HOLD
+  COMPLETED
+}
+
+model ProjectTask {
+  id                String           @id @default(uuid())
+  projectPhase      ProjectPhase     @relation(fields: [projectPhaseId], references: [id], onDelete: Cascade)
+  projectPhaseId    String
+  workflowTask      WorkflowTask     @relation(fields: [workflowTaskId], references: [id])
+  workflowTaskId    String
+  name              String
+  description       String?
+  status            TaskStatus       @default(NOT_STARTED)
+  priority          TaskPriority     @default(MEDIUM)
+  estimatedHours    Float
+  actualHours       Float?
+  assignedTo        User?            @relation("TaskAssignee", fields: [assignedToId], references: [id])
+  assignedToId      String?
+  scheduledStart    DateTime
+  scheduledEnd      DateTime
+  actualStart       DateTime?
+  actualEnd         DateTime?
+  forms             FormSubmission[]
+  checklists        Checklist[]
+  resourceAllocations ResourceAllocation[]
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([projectPhaseId])
+  @@index([workflowTaskId])
+  @@index([assignedToId])
+  @@index([status])
+  @@index([scheduledStart, scheduledEnd])
+}
+
+enum TaskStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  ON_HOLD
+  COMPLETED
+}
+
+// ==================== Form and Checklist Models ====================
+
+model FormTemplate {
+  id                String           @id @default(uuid())
+  name              String
+  description       String?
+  schemaJson        Json             // JSON schema defining the form structure
+  createdBy         User             @relation("FormTemplateCreator", fields: [createdById], references: [id])
+  createdById       String
+  formSubmissions   FormSubmission[]
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([createdById])
+}
+
+model FormSubmission {
+  id                String           @id @default(uuid())
+  task              ProjectTask      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskId            String
+  template          FormTemplate     @relation(fields: [templateId], references: [id])
+  templateId        String
+  responseJson      Json             // JSON containing form responses
+  submittedBy       User             @relation("FormSubmitter", fields: [submittedById], references: [id])
+  submittedById     String
+  status            FormStatus       @default(DRAFT)
+  submittedAt       DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([taskId])
+  @@index([templateId])
+  @@index([submittedById])
+  @@index([status])
+}
+
+enum FormStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+model Checklist {
+  id                String           @id @default(uuid())
+  task              ProjectTask      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskId            String
+  name              String
+  description       String?
+  status            ChecklistStatus  @default(IN_PROGRESS)
+  items             ChecklistItem[]
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([taskId])
+  @@index([status])
+}
+
+enum ChecklistStatus {
+  IN_PROGRESS
+  COMPLETED
+}
+
+model ChecklistItem {
+  id                String           @id @default(uuid())
+  checklist         Checklist        @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  checklistId       String
+  text              String
+  description       String?
+  isRequired        Boolean          @default(true)
+  isCompleted       Boolean          @default(false)
+  completedBy       User?            @relation("ChecklistItemCompleter", fields: [completedById], references: [id])
+  completedById     String?
+  completedAt       DateTime?
+  order             Int
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([checklistId])
+  @@index([completedById])
+  @@index([checklistId, order])
+}
+
+// ==================== Resource Management Models ====================
+
+model Resource {
+  id                String               @id @default(uuid())
+  name              String
+  type              ResourceType
+  department        Department?          @relation(fields: [departmentId], references: [id])
+  departmentId      String?
+  capacity          Float                // Hours per day or similar metric
+  skills            Json?                // JSON containing skills/capabilities
+  availability      ResourceAvailability[]
+  allocations       ResourceAllocation[]
+  utilization       ResourceUtilization[]
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  @@index([departmentId])
+  @@index([type])
+}
+
+enum ResourceType {
+  HUMAN
+  MACHINE
+  FACILITY
+  OTHER
+}
+
+model ResourceAvailability {
+  id                String               @id @default(uuid())
+  resource          Resource             @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  resourceId        String
+  startDate         DateTime
+  endDate           DateTime
+  status            AvailabilityStatus
+  reason            String?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  @@index([resourceId])
+  @@index([startDate, endDate])
+}
+
+model ResourceAllocation {
+  id                String               @id @default(uuid())
+  resource          Resource             @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  resourceId        String
+  project           Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId         String
+  task              ProjectTask?         @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  taskId            String?
+  user              User?                @relation("ResourceUser", fields: [userId], references: [id])
+  userId            String?
+  allocationType    AllocationType
+  percentage        Float?               // For percentage-based allocation
+  hours             Float?               // For hours-based allocation
+  startDate         DateTime
+  endDate           DateTime
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  @@index([resourceId])
+  @@index([projectId])
+  @@index([taskId])
+  @@index([userId])
+  @@index([startDate, endDate])
+}
+
+enum AllocationType {
+  PERCENTAGE
+  HOURS
+  ROLE
+}
+
+model ResourceUtilization {
+  id                String               @id @default(uuid())
+  resource          Resource             @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  resourceId        String
+  date              DateTime             // Typically day-level granularity
+  availableHours    Float
+  allocatedHours    Float
+  utilizedPercentage Float
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  @@index([resourceId])
+  @@index([date])
+  @@index([resourceId, date])
+}
+
+// ==================== Notification and Analytics Models ====================
+
+model Notification {
+  id                String               @id @default(uuid())
+  user              User                 @relation("NotificationReceiver", fields: [userId], references: [id], onDelete: Cascade)
+  userId            String
+  type              NotificationType
+  severity          NotificationSeverity @default(INFO)
+  title             String
+  message           String
+  isRead            Boolean              @default(false)
+  actionUrl         String?              // URL to relevant page in the app
+  metadata          Json?                // Additional data related to notification
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  @@index([userId])
+  @@index([type])
+  @@index([severity])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+enum NotificationType {
+  RESOURCE_OVERALLOCATION
+  DEPARTMENT_CAPACITY
+  SCHEDULE_VARIANCE
+  DEPENDENCY_RISK
+  BUDGET_IMPACT
+  DEADLINE_APPROACHING
+  TASK_STATUS_CHANGE
+  FORM_SUBMISSION
+  SYSTEM_NOTIFICATION
+}
+
+enum NotificationSeverity {
+  INFO
+  WARNING
+  ERROR
+  CRITICAL
+}
+
+model NotificationPreference {
+  id                String               @id @default(uuid())
+  user              User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId            String
+  notificationType  NotificationType
+  receiveEmail      Boolean              @default(true)
+  receiveInApp      Boolean              @default(true)
+  receiveSms        Boolean              @default(false)
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  @@unique([userId, notificationType])
+  @@index([userId])
+}
+
+model AnalyticsData {
+  id                String               @id @default(uuid())
+  entityType        String               // E.g., "resource", "project", "department"
+  entityId          String               // ID of the entity being analyzed
+  metricType        String               // E.g., "utilization", "schedule_variance"
+  date              DateTime
+  value             Float
+  metadata          Json?                // Additional contextual data
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  @@index([entityType, entityId])
+  @@index([metricType])
+  @@index([date])
+  @@index([entityType, metricType, date])
+}
+
+// ==================== System Configuration Models ====================
+
+model SystemSetting {
+  id                String               @id @default(uuid())
+  key               String               @unique
+  value             Json
+  description       String?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+}
+
+model AuditLog {
+  id                String               @id @default(uuid())
+  userId            String?              // Could be null for system actions
+  action            String
+  entityType        String
+  entityId          String?
+  details           Json
+  ipAddress         String?
+  userAgent         String?
+  timestamp         DateTime             @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([entityType, entityId])
+  @@index([timestamp])
 }
