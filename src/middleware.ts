@@ -1,63 +1,50 @@
-import { withAuth } from "next-auth/middleware"
+import NextAuth from "next-auth"
+import authConfig from "@/auth.config"
 import { NextResponse } from "next/server"
+
+const { auth } = NextAuth(authConfig)
 
 /**
  * Middleware configuration for protected routes and role-based access
  */
-export default withAuth(
-  function middleware(req) {
-    const token = req.nextauth.token
-    const isAuth = !!token
-    const isAuthPage = req.nextUrl.pathname.startsWith('/login')
-    const isApiRoute = req.nextUrl.pathname.startsWith('/api')
+export default auth((req) => {
+  const { auth: session } = req
+  const isAuth = !!session
+  const isAuthPage = req.nextUrl.pathname.startsWith('/login')
+  const isApiRoute = req.nextUrl.pathname.startsWith('/api')
 
-    // Redirect authenticated users away from auth pages
-    if (isAuthPage) {
-      if (isAuth) {
-        return NextResponse.redirect(new URL('/dashboard', req.url))
-      }
-      return null
+  // Redirect authenticated users away from auth pages
+  if (isAuthPage) {
+    if (isAuth) {
+      return NextResponse.redirect(new URL('/dashboard', req.url))
     }
-
-    // Handle API routes
-    if (isApiRoute) {
-      if (!isAuth) {
-        return new NextResponse(
-          JSON.stringify({ error: "Authentication required" }),
-          { status: 401 }
-        )
-      }
-      return null
-    }
-
-    // Protect admin routes
-    if (req.nextUrl.pathname.startsWith('/admin')) {
-      if (token?.role !== "ADMINISTRATOR") {
-        return NextResponse.redirect(new URL('/unauthorized', req.url))
-      }
-    }
-
     return null
-  },
-  {
-    callbacks: {
-      authorized: ({ token }) => !!token
-    },
   }
-)
+
+  // Handle API routes
+  if (isApiRoute) {
+    if (!isAuth) {
+      return new NextResponse(
+        JSON.stringify({ error: "Authentication required" }),
+        { status: 401 }
+      )
+    }
+    return null
+  }
+
+  // Protect admin routes
+  if (req.nextUrl.pathname.startsWith('/admin')) {
+    if (session?.user?.role !== "ADMINISTRATOR") {
+      return NextResponse.redirect(new URL('/unauthorized', req.url))
+    }
+  }
+
+  return null
+})
 
 /**
  * Configure which routes to protect with middleware
  */
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder
-     */
-    '/((?!_next/static|_next/image|favicon.ico|public).*)',
-  ]
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
 } 

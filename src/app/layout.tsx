@@ -4,7 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider"
 import { Sidebar } from "@/components/sidebar"
 import { Inter } from "next/font/google"
-import { SessionProvider } from "next-auth/react"
+import { NextAuthProvider } from "@/components/providers/next-auth-provider"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,7 +31,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased ${inter.className}`}>
-        <SessionProvider>
+        <NextAuthProvider>
           <ThemeProvider
             attribute="class"
             defaultTheme="system"
@@ -43,7 +43,7 @@ export default function RootLayout({
               <main className="flex-1">{children}</main>
             </div>
           </ThemeProvider>
-        </SessionProvider>
+        </NextAuthProvider>
       </body>
     </html>
   );
