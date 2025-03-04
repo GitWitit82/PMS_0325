@@ -5,6 +5,9 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { Sidebar } from "@/components/sidebar"
 import { Inter } from "next/font/google"
 import { NextAuthProvider } from "@/components/providers/next-auth-provider"
+import { AuthProvider } from "@/providers/auth-provider"
+import { Toaster } from "@/components/ui/toaster"
+import { SessionProvider } from "@/providers/session-provider"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,19 +34,24 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased ${inter.className}`}>
-        <NextAuthProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
-            <div className="flex min-h-screen">
-              <Sidebar />
-              <main className="flex-1">{children}</main>
-            </div>
-          </ThemeProvider>
-        </NextAuthProvider>
+        <SessionProvider>
+          <AuthProvider>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange
+            >
+              <NextAuthProvider>
+                <div className="flex min-h-screen">
+                  <Sidebar />
+                  <main className="flex-1">{children}</main>
+                </div>
+                <Toaster />
+              </NextAuthProvider>
+            </ThemeProvider>
+          </AuthProvider>
+        </SessionProvider>
       </body>
     </html>
   );

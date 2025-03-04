@@ -1,8 +1,10 @@
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import { NextAuthOptions } from "next-auth"
+import { prisma } from "@/lib/prisma"
 import CredentialsProvider from "next-auth/providers/credentials"
+import GoogleProvider from "next-auth/providers/google"
+import GitHubProvider from "next-auth/providers/github"
 import bcrypt from "bcryptjs"
-import { prisma } from "@/lib/db"
 
 /**
  * NextAuth configuration options
@@ -10,17 +12,20 @@ import { prisma } from "@/lib/db"
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   session: {
-    strategy: "jwt"
+    strategy: "jwt",
   },
   pages: {
-    signIn: "/login",
+    signIn: "/auth/signin",
+    signUp: "/auth/signup",
+    error: "/auth/error",
+    verifyRequest: "/auth/verify",
   },
   providers: [
     CredentialsProvider({
       name: "credentials",
       credentials: {
         email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" }
+        password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
@@ -28,22 +33,17 @@ export const authOptions: NextAuthOptions = {
         }
 
         const user = await prisma.user.findUnique({
-          where: {
-            email: credentials.email
-          }
+          where: { email: credentials.email },
         })
 
         if (!user || !user.password) {
-          throw new Error("User not found")
+          throw new Error("Invalid credentials")
         }
 
-        const isPasswordValid = await bcrypt.compare(
-          credentials.password,
-          user.password
-        )
+        const isValid = await bcrypt.compare(credentials.password, user.password)
 
-        if (!isPasswordValid) {
-          throw new Error("Invalid password")
+        if (!isValid) {
+          throw new Error("Invalid credentials")
         }
 
         return {
@@ -52,15 +52,21 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           role: user.role,
         }
-      }
-    })
+      },
+    }),
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    }),
+    GitHubProvider({
+      clientId: process.env.GITHUB_ID!,
+      clientSecret: process.env.GITHUB_SECRET!,
+    }),
   ],
   callbacks: {
     async session({ session, token }) {
       if (token) {
         session.user.id = token.id
-        session.user.name = token.name
-        session.user.email = token.email
         session.user.role = token.role
       }
       return session
@@ -71,6 +77,6 @@ export const authOptions: NextAuthOptions = {
         token.role = user.role
       }
       return token
-    }
-  }
+    },
+  },
 } 

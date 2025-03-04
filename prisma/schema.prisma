@@ -19,32 +19,31 @@ model User {
   emailVerified         DateTime?
   image                 String?
   password              String?
-  role                  Role                 @default(USER)
+  role                  UserRole             @default(TEAM_MEMBER)
   isActive              Boolean                @default(true)
   avatar                String?                // URL to avatar image
   skills                Json?                  // JSON array of skills
-  department            Department?            @relation(fields: [departmentId], references: [id])
-  departmentId          String?
-  managedDepartments    Department[]           @relation("DepartmentManager")
-  createdProjects       Project[]              @relation("ProjectCreator")
-  assignedTasks         ProjectTask[]          @relation("TaskAssignee")
-  createdWorkflows      Workflow[]             @relation("WorkflowCreator")
-  createdFormTemplates  FormTemplate[]         @relation("FormTemplateCreator")
-  formSubmissions       FormSubmission[]       @relation("FormSubmitter")
-  completedChecklistItems ChecklistItem[]      @relation("ChecklistItemCompleter")
-  receivedNotifications Notification[]         @relation("NotificationReceiver")
-  notificationPreferences NotificationPreference[]
-  availability          UserAvailability[]
-  resourceAllocations   ResourceAllocation[]   @relation("ResourceUser")
   createdAt             DateTime             @default(now())
   updatedAt             DateTime             @updatedAt
 
   // Relations
   accounts              Account[]
   sessions              Session[]
-  projects              Project[]
-  tasks                 Task[]
-  notifications         Notification[]
+  department            Department?            @relation(fields: [departmentId], references: [id])
+  departmentId          String?
+  managedDepartments    Department[]           @relation("DepartmentManager")
+  managedProjects       Project[]              @relation("ProjectManager")
+  createdProjects       Project[]              @relation("ProjectCreator")
+  assignedTasks         ProjectTask[]          @relation("TaskAssignee")
+  createdWorkflows      Workflow[]             @relation("WorkflowCreator")
+  createdFormTemplates  FormTemplate[]         @relation("FormTemplateCreator")
+  formSubmissions       FormSubmission[]       @relation("FormSubmitter")
+  completedChecklistItems ChecklistItem[]      @relation("ChecklistItemCompleter")
+  notifications         Notification[]         @relation("UserNotifications")
+  receivedNotifications Notification[]         @relation("ReceivedNotifications")
+  notificationPreferences NotificationPreference[]
+  availability          UserAvailability[]
+  resourceAllocations   ResourceAllocation[]   @relation("ResourceUser")
 
   @@index([departmentId])
   @@index([email])
@@ -226,30 +225,33 @@ enum TaskPriority {
 
 model Project {
   id              String           @id @default(cuid())
-  workflow        Workflow         @relation(fields: [workflowId], references: [id])
-  workflowId      String
   name            String
   description     String?
   status          ProjectStatus    @default(DRAFT)
   startDate       DateTime
   endDate         DateTime
-  department      Department?      @relation(fields: [departmentId], references: [id])
-  departmentId    String?
   priority        TaskPriority     @default(MEDIUM)
   metadata        Json?            // Additional project properties as JSON
-  createdBy       User             @relation("ProjectCreator", fields: [createdById], references: [id])
-  createdById     String
-  phases          ProjectPhase[]
-  resourceAllocations ResourceAllocation[]
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
   // Relations
-  tasks             Task[]
+  workflow        Workflow         @relation(fields: [workflowId], references: [id])
+  workflowId      String
+  department      Department?      @relation(fields: [departmentId], references: [id])
+  departmentId    String?
+  createdBy       User             @relation("ProjectCreator", fields: [createdById], references: [id])
+  createdById     String
+  manager         User             @relation("ProjectManager", fields: [managerId], references: [id])
+  managerId       String
+  phases          ProjectPhase[]
+  tasks           ProjectTask[]    @relation("ProjectTasks")
+  resourceAllocations ResourceAllocation[]
 
   @@index([workflowId])
   @@index([departmentId])
   @@index([createdById])
+  @@index([managerId])
   @@index([status])
   @@map("projects")
 }
@@ -292,27 +294,31 @@ enum PhaseStatus {
 
 model ProjectTask {
   id                String           @id @default(uuid())
-  projectPhase      ProjectPhase     @relation(fields: [projectPhaseId], references: [id], onDelete: Cascade)
-  projectPhaseId    String
-  workflowTask      WorkflowTask     @relation(fields: [workflowTaskId], references: [id])
-  workflowTaskId    String
   name              String
   description       String?
-  status            TaskStatus       @default(NOT_STARTED)
+  status            TaskStatus       @default(TODO)
   priority          TaskPriority     @default(MEDIUM)
   estimatedHours    Float
   actualHours       Float?
-  assignedTo        User?            @relation("TaskAssignee", fields: [assignedToId], references: [id])
-  assignedToId      String?
   scheduledStart    DateTime
   scheduledEnd      DateTime
   actualStart       DateTime?
   actualEnd         DateTime?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  // Relations
+  projectPhase      ProjectPhase     @relation(fields: [projectPhaseId], references: [id], onDelete: Cascade)
+  projectPhaseId    String
+  workflowTask      WorkflowTask     @relation(fields: [workflowTaskId], references: [id])
+  workflowTaskId    String
+  project           Project          @relation("ProjectTasks", fields: [projectId], references: [id])
+  projectId         String
+  assignedTo        User?            @relation("TaskAssignee", fields: [assignedToId], references: [id])
+  assignedToId      String?
   forms             FormSubmission[]
   checklists        Checklist[]
   resourceAllocations ResourceAllocation[]
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
 
   @@index([projectPhaseId])
   @@index([workflowTaskId])
@@ -504,8 +510,10 @@ model ResourceUtilization {
 
 model Notification {
   id                String               @id @default(uuid())
-  user              User                 @relation("NotificationReceiver", fields: [userId], references: [id], onDelete: Cascade)
+  user              User                 @relation("UserNotifications", fields: [userId], references: [id])
+  receiver          User                 @relation("ReceivedNotifications", fields: [receiverId], references: [id])
   userId            String
+  receiverId        String
   type              NotificationType
   severity          NotificationSeverity @default(INFO)
   title             String
@@ -517,10 +525,12 @@ model Notification {
   updatedAt         DateTime             @updatedAt
 
   @@index([userId])
+  @@index([receiverId])
   @@index([type])
   @@index([severity])
   @@index([isRead])
   @@index([createdAt])
+  @@map("notifications")
 }
 
 enum NotificationType {

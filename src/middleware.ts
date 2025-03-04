@@ -1,50 +1,65 @@
-import NextAuth from "next-auth"
-import authConfig from "@/auth.config"
+import { withAuth } from "next-auth/middleware"
 import { NextResponse } from "next/server"
+import { TokenService } from "@/lib/auth/token-service"
 
-const { auth } = NextAuth(authConfig)
+// Define route permissions
+const routePermissions = {
+  "/admin": ["ADMINISTRATOR"],
+  "/admin/users": ["ADMINISTRATOR"],
+  "/projects/create": ["ADMINISTRATOR", "MANAGER"],
+  "/projects/edit": ["ADMINISTRATOR", "MANAGER"],
+  "/reports": ["ADMINISTRATOR", "MANAGER", "SUPERVISOR"],
+} as const
 
-/**
- * Middleware configuration for protected routes and role-based access
- */
-export default auth((req) => {
-  const { auth: session } = req
-  const isAuth = !!session
-  const isAuthPage = req.nextUrl.pathname.startsWith('/login')
-  const isApiRoute = req.nextUrl.pathname.startsWith('/api')
+export default withAuth(
+  async function middleware(req) {
+    const token = req.nextauth.token
+    const isAuth = !!token
+    const role = token?.role as string
+    const path = req.nextUrl.pathname
 
-  // Redirect authenticated users away from auth pages
-  if (isAuthPage) {
-    if (isAuth) {
-      return NextResponse.redirect(new URL('/dashboard', req.url))
+    // Handle auth pages
+    if (path.startsWith("/auth")) {
+      if (isAuth) {
+        return NextResponse.redirect(new URL("/dashboard", req.url))
+      }
+      return NextResponse.next()
     }
-    return null
-  }
 
-  // Handle API routes
-  if (isApiRoute) {
-    if (!isAuth) {
-      return new NextResponse(
-        JSON.stringify({ error: "Authentication required" }),
-        { status: 401 }
-      )
+    // Validate JWT token
+    const jwtToken = TokenService.getTokenFromRequest(req)
+    if (jwtToken) {
+      try {
+        await TokenService.verifyToken(jwtToken)
+      } catch (error) {
+        return NextResponse.redirect(new URL("/auth/signin?error=InvalidToken", req.url))
+      }
     }
-    return null
-  }
 
-  // Protect admin routes
-  if (req.nextUrl.pathname.startsWith('/admin')) {
-    if (session?.user?.role !== "ADMINISTRATOR") {
-      return NextResponse.redirect(new URL('/unauthorized', req.url))
+    // Check route permissions
+    for (const [route, allowedRoles] of Object.entries(routePermissions)) {
+      if (path.startsWith(route) && !allowedRoles.includes(role)) {
+        return NextResponse.redirect(new URL("/unauthorized", req.url))
+      }
     }
+
+    return NextResponse.next()
+  },
+  {
+    callbacks: {
+      authorized: ({ token }) => !!token,
+    },
   }
+)
 
-  return null
-})
-
-/**
- * Configure which routes to protect with middleware
- */
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+  matcher: [
+    "/dashboard/:path*",
+    "/projects/:path*",
+    "/tasks/:path*",
+    "/admin/:path*",
+    "/reports/:path*",
+    "/settings/:path*",
+    "/auth/:path*",
+  ],
 } 
