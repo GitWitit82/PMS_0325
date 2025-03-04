@@ -52,8 +52,8 @@ This document tracks the implementation progress of the Resource and Project Man
   - [x] `ControlledNumberInput` - Number input with validation
   - [x] `ControlledSearchInput` - Search input with suggestions
 
-- [ ] Interactive Components
-  - [ ] `ControlledDataTable` - Table with sorting, filtering, pagination
+- [x] Interactive Components
+  - [x] `ControlledDataTable` - Table with sorting, filtering, pagination
   - [ ] `ControlledGanttChart` - Interactive Gantt chart
   - [ ] `ControlledCalendar` - Interactive calendar
   - [ ] `ControlledTimeline` - Interactive timeline
