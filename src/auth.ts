@@ -3,15 +3,15 @@ import { authConfig } from "@/auth.config"
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import { prisma } from "@/lib/prisma"
 import Credentials from "next-auth/providers/credentials"
-import bcrypt from "bcryptjs"
+import bcrypt from "bcrypt"
 import { UserRole } from "@prisma/client"
 
-export const { auth, signIn, signOut } = NextAuth({
+const handler = NextAuth({
   ...authConfig,
   adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
   pages: {
-    signIn: "/auth/login",
+    signIn: "/auth/signin",
     signUp: "/auth/signup",
     error: "/auth/error",
     verifyRequest: "/auth/verify",
@@ -67,4 +67,6 @@ export const { auth, signIn, signOut } = NextAuth({
       },
     }),
   ],
-}) 
+})
+
+export const { auth, signIn, signOut } = handler 

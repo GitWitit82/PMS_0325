@@ -1,9 +1,7 @@
 import { Metadata } from "next"
-import { DashboardHeader } from "@/components/dashboard/header"
-import { DashboardShell } from "@/components/dashboard/shell"
-import { ProjectsOverview } from "@/components/dashboard/projects-overview"
-import { ResourceUtilization } from "@/components/dashboard/resource-utilization"
-import { UpcomingTasks } from "@/components/dashboard/upcoming-tasks"
+import { redirect } from "next/navigation"
+import { getServerSession } from "next-auth"
+import { authConfig } from "@/auth.config"
 
 export const metadata: Metadata = {
   title: "Dashboard | Resource and Project Management System",
@@ -14,19 +12,18 @@ export const metadata: Metadata = {
  * Dashboard page component
  */
 export default async function DashboardPage() {
+  const session = await getServerSession(authConfig)
+
+  if (!session) {
+    redirect("/auth/signin")
+  }
+
   return (
-    <DashboardShell>
-      <DashboardHeader
-        heading="Dashboard"
-        text="Overview of your projects and resources"
-      />
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <ProjectsOverview className="col-span-4" />
-        <ResourceUtilization className="col-span-3" />
-      </div>
-      <div className="mt-4">
-        <UpcomingTasks />
-      </div>
-    </DashboardShell>
+    <div className="p-6">
+      <h1 className="text-2xl font-bold">Dashboard</h1>
+      <p className="mt-4 text-muted-foreground">
+        Welcome back, {session.user?.name || "User"}!
+      </p>
+    </div>
   )
 } 

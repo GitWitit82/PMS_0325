@@ -1,66 +1,44 @@
-import { auth } from "@/auth"
-import { NextRequest, NextResponse } from "next/server"
-import { TokenService } from "@/lib/auth/token-service"
-import { UserRole } from "@prisma/client"
+import { NextResponse } from "next/server"
+import type { NextRequest } from "next/server"
 
-// Define route permissions
-const routePermissions: Record<string, UserRole[]> = {
-  "/admin": ["ADMINISTRATOR"],
-  "/admin/users": ["ADMINISTRATOR"],
-  "/projects/create": ["ADMINISTRATOR", "MANAGER"],
-  "/projects/edit": ["ADMINISTRATOR", "MANAGER"],
-  "/reports": ["ADMINISTRATOR", "MANAGER", "SUPERVISOR"],
-}
+// Array of paths that don't require authentication
+const publicPaths = ["/", "/auth/signin", "/auth/signup", "/auth/error"]
 
-export default async function middleware(req: NextRequest) {
-  const session = await auth()
-  const isAuth = !!session
-  const role = session?.user?.role as UserRole
-  const path = req.nextUrl.pathname
+export async function middleware(request: NextRequest) {
+  // Get the pathname of the request
+  const path = request.nextUrl.pathname
 
-  // Handle auth pages
-  if (path.startsWith("/auth")) {
-    if (isAuth) {
-      return NextResponse.redirect(new URL("/dashboard", req.url))
-    }
-    return NextResponse.next()
+  // Check if the current path is a public path
+  const isPublicPath = publicPaths.some(publicPath => path === publicPath)
+
+  // Get the token from the session cookie
+  const token = request.cookies.get("next-auth.session-token")?.value
+
+  // Redirect authenticated users to dashboard if they try to access public paths
+  if (token && isPublicPath) {
+    return NextResponse.redirect(new URL("/dashboard", request.url))
   }
 
-  // Validate JWT token
-  const jwtToken = TokenService.getTokenFromRequest(req)
-  if (jwtToken) {
-    try {
-      await TokenService.verifyToken(jwtToken)
-    } catch (error) {
-      return NextResponse.redirect(new URL("/auth/signin?error=InvalidToken", req.url))
-    }
-  }
-
-  // Check if user is authenticated
-  if (!isAuth) {
-    const redirectUrl = new URL("/auth/signin", req.url)
-    redirectUrl.searchParams.set("callbackUrl", req.url)
-    return NextResponse.redirect(redirectUrl)
-  }
-
-  // Check route permissions
-  for (const [route, allowedRoles] of Object.entries(routePermissions)) {
-    if (path.startsWith(route) && !allowedRoles.includes(role)) {
-      return NextResponse.redirect(new URL("/unauthorized", req.url))
-    }
+  // Redirect unauthenticated users to signin if they try to access protected paths
+  if (!token && !isPublicPath) {
+    const signinUrl = new URL("/auth/signin", request.url)
+    signinUrl.searchParams.set("callbackUrl", path)
+    return NextResponse.redirect(signinUrl)
   }
 
   return NextResponse.next()
 }
 
+// See "Matching Paths" below to learn more
 export const config = {
   matcher: [
-    "/dashboard/:path*",
-    "/projects/:path*",
-    "/tasks/:path*",
-    "/admin/:path*",
-    "/reports/:path*",
-    "/settings/:path*",
-    "/auth/:path*",
+    /*
+     * Match all paths except:
+     * - api (API routes)
+     * - _next (Next.js internals)
+     * - static (static files)
+     * - favicon.ico
+     */
+    "/((?!api|_next|static|favicon.ico).*)",
   ],
 } 

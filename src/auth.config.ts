@@ -43,28 +43,13 @@ export const authConfig = {
     }),
   ],
   pages: {
-    signIn: '/auth/login',
+    signIn: '/auth/signin',
     signUp: '/auth/signup',
     error: '/auth/error',
     verifyRequest: '/auth/verify',
   },
-  session: {
-    strategy: "jwt",
-  },
+  session: { strategy: "jwt" },
   callbacks: {
-    authorized({ auth, request: { nextUrl } }) {
-      const isLoggedIn = !!auth?.user
-      const isOnDashboard = nextUrl.pathname.startsWith('/dashboard')
-      const isOnAdmin = nextUrl.pathname.startsWith('/admin')
-      
-      if (isOnDashboard || isOnAdmin) {
-        if (isLoggedIn) return true
-        return false // Redirect unauthenticated users to login page
-      } else if (isLoggedIn && nextUrl.pathname === '/auth/login') {
-        return Response.redirect(new URL('/dashboard', nextUrl))
-      }
-      return true
-    },
     jwt({ token, user }) {
       if (user) {
         token.role = user.role
