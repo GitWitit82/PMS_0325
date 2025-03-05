@@ -1,10 +1,11 @@
 import { jwtVerify, SignJWT } from "jose"
-import { cookies } from "next/headers"
 import { NextRequest } from "next/server"
 
 const JWT_SECRET = new TextEncoder().encode(
   process.env.NEXTAUTH_SECRET || "your-secret-key"
 )
+
+const AUTH_COOKIE_NAME = "next-auth.session-token"
 
 export interface JWTPayload {
   sub: string
@@ -69,9 +70,25 @@ export class TokenService {
       return authHeader.substring(7)
     }
 
-    // Try to get token from cookie
-    const cookieStore = cookies()
-    return cookieStore.get("next-auth.session-token")?.value || null
+    // Try to get token from cookie in the request
+    const cookieValue = req.cookies.get(AUTH_COOKIE_NAME)?.value
+    if (cookieValue) {
+      return cookieValue
+    }
+
+    return null
+  }
+
+  static getTokenFromCookie(): string | null {
+    // This function works in client-side code
+    if (typeof document !== 'undefined') {
+      const cookies = document.cookie.split(';')
+      const cookie = cookies.find(c => c.trim().startsWith(`${AUTH_COOKIE_NAME}=`))
+      if (cookie) {
+        return cookie.split('=')[1]
+      }
+    }
+    return null
   }
 
   static isTokenExpired(token: string): boolean {

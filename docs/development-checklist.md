@@ -136,7 +136,13 @@ This document tracks the implementation progress of the Resource and Project Man
 - [ ] Workflow template listing
 - [ ] Workflow template creation
 - [ ] Workflow template editing
-- [ ] Workflow template duplication
+- [x] Workflow template duplication
+  - [x] API endpoint implementation
+  - [x] Transaction-based duplication
+  - [x] Phase duplication
+  - [x] Task duplication
+  - [x] Dependency preservation
+  - [x] UI component implementation
 - [ ] Workflow template versioning
 - [ ] Workflow template deletion
 - [ ] Workflow template import/export
