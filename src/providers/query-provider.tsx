@@ -2,12 +2,20 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools"
-import { useState } from "react"
+import { useState, type ReactNode } from "react"
+
+interface QueryProviderProps {
+  children: ReactNode
+}
 
 /**
- * React Query provider component
+ * QueryProvider component that wraps the application with React Query's QueryClientProvider
+ * and includes ReactQueryDevtools in development mode
+ * 
+ * @param {QueryProviderProps} props - The component props
+ * @returns {JSX.Element} The wrapped component with React Query context
  */
-export function QueryProvider({ children }: { children: React.ReactNode }) {
+export function QueryProvider({ children }: QueryProviderProps) {
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -15,6 +23,7 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
           queries: {
             staleTime: 60 * 1000, // 1 minute
             refetchOnWindowFocus: false,
+            retry: 1,
           },
         },
       })
@@ -23,7 +32,7 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       {children}
-      <ReactQueryDevtools initialIsOpen={false} />
+      {process.env.NODE_ENV === 'development' && <ReactQueryDevtools />}
     </QueryClientProvider>
   )
 } 

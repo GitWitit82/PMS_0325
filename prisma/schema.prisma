@@ -240,6 +240,8 @@ model Project {
   workflowId      String
   department      Department?      @relation(fields: [departmentId], references: [id])
   departmentId    String?
+  customer        Customer?        @relation("CustomerProjects", fields: [customerId], references: [id])
+  customerId      String?
   createdBy       User             @relation("ProjectCreator", fields: [createdById], references: [id])
   createdById     String
   manager         User             @relation("ProjectManager", fields: [managerId], references: [id])
@@ -250,6 +252,7 @@ model Project {
 
   @@index([workflowId])
   @@index([departmentId])
+  @@index([customerId])
   @@index([createdById])
   @@index([managerId])
   @@index([status])
@@ -609,4 +612,20 @@ model AuditLog {
   @@index([action])
   @@index([entityType, entityId])
   @@index([timestamp])
+}
+
+// ==================== Customer Model ====================
+
+model Customer {
+  id            String      @id @default(uuid())
+  name          String
+  email         String      @unique
+  phone         String?
+  address       String?
+  notes         String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  projects      Project[]   @relation("CustomerProjects")
+
+  @@map("customers")
 }
