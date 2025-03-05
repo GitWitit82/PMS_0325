@@ -43,8 +43,10 @@ export const authConfig = {
     }),
   ],
   pages: {
-    signIn: '/login',
-    error: '/error',
+    signIn: '/auth/login',
+    signUp: '/auth/signup',
+    error: '/auth/error',
+    verifyRequest: '/auth/verify',
   },
   session: {
     strategy: "jwt",
@@ -58,7 +60,7 @@ export const authConfig = {
       if (isOnDashboard || isOnAdmin) {
         if (isLoggedIn) return true
         return false // Redirect unauthenticated users to login page
-      } else if (isLoggedIn && nextUrl.pathname === '/login') {
+      } else if (isLoggedIn && nextUrl.pathname === '/auth/login') {
         return Response.redirect(new URL('/dashboard', nextUrl))
       }
       return true
