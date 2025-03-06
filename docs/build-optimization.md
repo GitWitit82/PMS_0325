@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the build optimization process for the Workflow PMS project. The process is automated through a shell script that performs comprehensive checks, optimizations, and validations during the build process.
+This document describes the build optimization process for the Workflow PMS project. The process is automated through a shell script that performs comprehensive checks, optimizations, and validations during the build process
 
 ## Quick Start
 
