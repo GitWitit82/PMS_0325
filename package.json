@@ -13,7 +13,7 @@
     "prisma:studio": "prisma studio"
   },
   "prisma": {
-    "seed": "ts-node -T prisma/seed.ts"
+    "seed": "ts-node prisma/seed.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.8.0",
