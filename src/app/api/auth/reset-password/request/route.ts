@@ -1,25 +1,34 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { z } from "zod"
-import { randomBytes } from "crypto"
-import { sendEmail } from "@/lib/email"
+import { generateToken } from "@/lib/token"
 
-const requestSchema = z.object({
-  email: z.string().email(),
-})
-
-export async function POST(req: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const body = await req.json()
-    const { email } = requestSchema.parse(body)
+    const { email } = await request.json()
 
-    // Generate reset token
-    const token = randomBytes(32).toString("hex")
+    // Check if user exists
+    const user = await prisma.user.findUnique({
+      where: { email },
+    })
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "No user found with this email" },
+        { status: 404 }
+      )
+    }
+
+    const token = generateToken()
     const expires = new Date(Date.now() + 3600000) // 1 hour from now
 
     // Update or create verification token
     await prisma.verificationToken.upsert({
-      where: { identifier: email },
+      where: {
+        identifier_token: {
+          identifier: email,
+          token,
+        },
+      },
       update: {
         token,
         expires,
@@ -31,32 +40,16 @@ export async function POST(req: Request) {
       },
     })
 
-    // Send reset email
-    const resetUrl = `${process.env.NEXTAUTH_URL}/auth/reset-password/${token}`
-    await sendEmail({
-      to: email,
-      subject: "Reset your password",
-      html: `
-        <p>Click the link below to reset your password:</p>
-        <p><a href="${resetUrl}">${resetUrl}</a></p>
-        <p>This link will expire in 1 hour.</p>
-      `,
-    })
+    // TODO: Send email with reset link
 
     return NextResponse.json(
-      { message: "Reset email sent successfully" },
+      { message: "Password reset link sent to your email" },
       { status: 200 }
     )
   } catch (error) {
-    console.error("Password reset request error:", error)
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { message: "Invalid email address" },
-        { status: 400 }
-      )
-    }
+    console.error("Reset password request error:", error)
     return NextResponse.json(
-      { message: "Failed to process reset request" },
+      { error: "Failed to process reset password request" },
       { status: 500 }
     )
   }

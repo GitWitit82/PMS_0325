@@ -1,3 +1,5 @@
+"use client"
+
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -9,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogTrigger,
 } from '@/components/ui/dialog';
 import {
   Form,
@@ -35,6 +38,7 @@ interface WorkflowFormDialogProps {
   onOpenChange: (open: boolean) => void;
   workflow?: WorkflowTableItem;
   onSubmit: (data: WorkflowFormData) => Promise<void>;
+  children: React.ReactNode;
 }
 
 export default function WorkflowFormDialog({
@@ -42,6 +46,7 @@ export default function WorkflowFormDialog({
   onOpenChange,
   workflow,
   onSubmit,
+  children,
 }: WorkflowFormDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -70,6 +75,9 @@ export default function WorkflowFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogTrigger asChild>
+        {children}
+      </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>

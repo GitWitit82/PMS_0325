@@ -1,8 +1,6 @@
 "use client"
 
-import { useState } from "react"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { ComponentType, useState, useMemo, useEffect } from "react"
 import {
   Select,
   SelectContent,
@@ -10,89 +8,109 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
 
-interface FilterConfig<T> {
-  field: keyof T
-  type: "text" | "select" | "number" | "date"
-  label: string
-  options?: { label: string; value: string }[] // For select type
-}
-
-interface WithFilteringProps<T> {
+export interface WithFilteringProps<T> {
   data: T[]
-  filters: FilterConfig<T>[]
+  filterableFields?: (keyof T)[]
+  onFilterChange?: (filteredData: T[]) => void
 }
 
 /**
  * HOC to add filtering capabilities to data views
  * @param Component - Component to wrap
  */
-export function withFiltering<T extends object, P extends WithFilteringProps<T>>(
-  WrappedComponent: React.ComponentType<P>
+export function withFiltering<T extends Record<string, unknown>>(
+  WrappedComponent: ComponentType<{ data: T[] }>
 ) {
-  return function WithFiltering(props: P) {
-    const [filterValues, setFilterValues] = useState<Record<string, any>>({})
+  return function WithFilteringComponent({
+    data,
+    filterableFields = [],
+    onFilterChange,
+    ...props
+  }: WithFilteringProps<T>) {
+    const [filters, setFilters] = useState<Record<string, string>>({})
+    const [searchTerm, setSearchTerm] = useState("")
 
-    const filteredData = props.data.filter(item => {
-      return Object.entries(filterValues).every(([field, value]) => {
-        if (!value) return true
-        const itemValue = item[field as keyof T]
-        
-        if (typeof value === "string") {
-          return String(itemValue)
-            .toLowerCase()
-            .includes(value.toLowerCase())
-        }
-        
-        return itemValue === value
-      })
-    })
-
-    const handleFilterChange = (field: string, value: any) => {
-      setFilterValues(prev => ({
+    const handleFilterChange = (field: keyof T, value: string) => {
+      setFilters((prev) => ({
         ...prev,
-        [field]: value
+        [field]: value,
       }))
     }
 
+    const handleSearchChange = (value: string) => {
+      setSearchTerm(value)
+    }
+
+    const filteredData = useMemo(() => {
+      return data.filter((item) => {
+        // Apply field-specific filters
+        const passesFieldFilters = Object.entries(filters).every(
+          ([field, filterValue]) => {
+            if (!filterValue) return true
+            const itemValue = String(item[field]).toLowerCase()
+            return itemValue.includes(filterValue.toLowerCase())
+          }
+        )
+
+        // Apply global search
+        const passesSearch = searchTerm
+          ? Object.values(item).some(
+              (val) =>
+                val &&
+                String(val).toLowerCase().includes(searchTerm.toLowerCase())
+            )
+          : true
+
+        return passesFieldFilters && passesSearch
+      })
+    }, [data, filters, searchTerm])
+
+    useEffect(() => {
+      onFilterChange?.(filteredData)
+    }, [filteredData, onFilterChange])
+
     return (
-      <div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-          {props.filters.map(filter => (
-            <div key={String(filter.field)} className="space-y-2">
-              <Label>{filter.label}</Label>
-              {filter.type === "select" ? (
-                <Select
-                  value={filterValues[String(filter.field)] || ""}
-                  onValueChange={(value) => 
-                    handleFilterChange(String(filter.field), value)
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {filter.options?.map(option => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <Input
-                  type={filter.type}
-                  value={filterValues[String(filter.field)] || ""}
-                  onChange={(e) => 
-                    handleFilterChange(String(filter.field), e.target.value)
-                  }
-                  placeholder={`Filter by ${filter.label.toLowerCase()}...`}
-                />
-              )}
-            </div>
+      <div className="space-y-4">
+        <div className="flex flex-wrap gap-4">
+          <Input
+            placeholder="Search..."
+            value={searchTerm}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            className="w-full md:w-auto"
+          />
+          {filterableFields.map((field) => (
+            <Select
+              key={String(field)}
+              onValueChange={(value) => handleFilterChange(field, value)}
+            >
+              <SelectTrigger className="w-full md:w-[180px]">
+                <SelectValue placeholder={`Filter by ${String(field)}`} />
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from(
+                  new Set(data.map((item) => String(item[field])))
+                ).map((value) => (
+                  <SelectItem key={value} value={value}>
+                    {value}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           ))}
+          {Object.keys(filters).length > 0 && (
+            <Button
+              variant="outline"
+              onClick={() => setFilters({})}
+              className="w-full md:w-auto"
+            >
+              Clear Filters
+            </Button>
+          )}
         </div>
-        <WrappedComponent {...props} data={filteredData} />
+        <WrappedComponent data={filteredData} {...props} />
       </div>
     )
   }

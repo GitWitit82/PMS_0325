@@ -3,13 +3,11 @@
 import { useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Printer } from "lucide-react"
-import { useReactToPrint } from "react-to-print"
 
 interface WithPrintingProps {
   title?: string
-  showPrintButton?: boolean
   printStyles?: string
-  onBeforePrint?: () => void | Promise<void>
+  onBeforePrint?: () => Promise<void>
   onAfterPrint?: () => void
 }
 
@@ -21,51 +19,74 @@ export function withPrinting<T extends WithPrintingProps>(
   WrappedComponent: React.ComponentType<T>
 ) {
   return function WithPrinting(props: T) {
-    const componentRef = useRef<HTMLDivElement>(null)
     const [isPrinting, setIsPrinting] = useState(false)
+    const componentRef = useRef<HTMLDivElement>(null)
 
-    const handlePrint = useReactToPrint({
-      content: () => componentRef.current,
-      documentTitle: props.title || "Print Document",
-      onBeforeGetContent: async () => {
+    const handlePrint = async () => {
+      try {
         setIsPrinting(true)
-        await props.onBeforePrint?.()
-      },
-      onAfterPrint: () => {
-        setIsPrinting(false)
-        props.onAfterPrint?.()
-      },
-      pageStyle: `
-        @media print {
-          @page {
-            size: auto;
-            margin: 20mm;
+        
+        // Add print styles
+        const style = document.createElement('style')
+        style.textContent = `
+          @media print {
+            @page {
+              size: auto;
+              margin: 20mm;
+            }
+            body * {
+              visibility: hidden;
+            }
+            #printable-content,
+            #printable-content * {
+              visibility: visible;
+            }
+            #printable-content {
+              position: absolute;
+              left: 0;
+              top: 0;
+            }
+            ${props.printStyles || ""}
           }
-          body {
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-          }
-          ${props.printStyles || ""}
+        `
+        document.head.appendChild(style)
+
+        // Set document title
+        const originalTitle = document.title
+        if (props.title) {
+          document.title = props.title
         }
-      `,
-    })
+
+        // Execute before print callback
+        await props.onBeforePrint?.()
+
+        // Print
+        window.print()
+
+        // Cleanup
+        document.head.removeChild(style)
+        document.title = originalTitle
+        props.onAfterPrint?.()
+      } catch (error) {
+        console.error('Print error:', error)
+      } finally {
+        setIsPrinting(false)
+      }
+    }
 
     return (
       <div>
-        {props.showPrintButton !== false && (
-          <div className="flex justify-end mb-4">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handlePrint}
-              disabled={isPrinting}
-            >
-              <Printer className="h-4 w-4 mr-2" />
-              {isPrinting ? "Preparing..." : "Print"}
-            </Button>
-          </div>
-        )}
-        <div ref={componentRef}>
+        <Button
+          variant="outline"
+          size="sm"
+          className="ml-auto"
+          onClick={handlePrint}
+          disabled={isPrinting}
+        >
+          <Printer className="mr-2 h-4 w-4" />
+          {isPrinting ? "Printing..." : "Print"}
+        </Button>
+        <div ref={componentRef} id="printable-content">
           <WrappedComponent {...props} />
         </div>
       </div>

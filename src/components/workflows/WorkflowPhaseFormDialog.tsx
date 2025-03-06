@@ -1,8 +1,9 @@
+"use client"
+
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { WorkflowPhaseFormData, WorkflowPhaseTableItem } from '@/types/workflow';
 import {
   Dialog,
   DialogContent,
@@ -21,20 +22,27 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/components/ui/use-toast';
 
 const phaseFormSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   description: z.string().optional(),
   order: z.number().min(1, 'Order must be at least 1'),
-  estimatedDuration: z.number().min(0).optional(),
+  estimatedDuration: z.number().min(0, 'Duration must be non-negative').optional(),
 });
 
 interface WorkflowPhaseFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   workflowId: string;
-  phase?: WorkflowPhaseTableItem;
-  onSubmit: (data: WorkflowPhaseFormData) => Promise<void>;
+  phase?: {
+    id: string;
+    name: string;
+    description?: string;
+    order: number;
+    estimatedDuration?: number;
+  };
+  onSubmit: (data: z.infer<typeof phaseFormSchema>) => Promise<void>;
 }
 
 export default function WorkflowPhaseFormDialog({
@@ -45,25 +53,51 @@ export default function WorkflowPhaseFormDialog({
   onSubmit,
 }: WorkflowPhaseFormDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
 
-  const form = useForm<WorkflowPhaseFormData>({
+  const form = useForm<z.infer<typeof phaseFormSchema>>({
     resolver: zodResolver(phaseFormSchema),
     defaultValues: {
       name: phase?.name || '',
       description: phase?.description || '',
       order: phase?.order || 1,
-      estimatedDuration: phase?.estimatedDuration || undefined,
+      estimatedDuration: phase?.estimatedDuration || 0,
     },
   });
 
-  const handleSubmit = async (data: WorkflowPhaseFormData) => {
+  const handleSubmit = async (data: z.infer<typeof phaseFormSchema>) => {
     try {
       setIsSubmitting(true);
+      const url = phase
+        ? `/api/workflows/${workflowId}/phases/${phase.id}`
+        : `/api/workflows/${workflowId}/phases`;
+      const method = phase ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to save phase');
+      }
+
       await onSubmit(data);
       onOpenChange(false);
       form.reset();
+      toast({
+        title: 'Success',
+        description: `Phase ${phase ? 'updated' : 'created'} successfully`,
+      });
     } catch (error) {
       console.error('Error submitting phase:', error);
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to save phase',
+        variant: 'destructive',
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -74,7 +108,7 @@ export default function WorkflowPhaseFormDialog({
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>
-            {phase ? 'Edit Phase' : 'Add New Phase'}
+            {phase ? 'Edit Phase' : 'Create New Phase'}
           </DialogTitle>
         </DialogHeader>
 
@@ -112,51 +146,43 @@ export default function WorkflowPhaseFormDialog({
               )}
             />
 
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="order"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Order</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        min={1}
-                        {...field}
-                        onChange={(e) => field.onChange(parseInt(e.target.value))}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            <FormField
+              control={form.control}
+              name="order"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Order</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min={1}
+                      {...field}
+                      onChange={(e) => field.onChange(parseInt(e.target.value))}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-              <FormField
-                control={form.control}
-                name="estimatedDuration"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Est. Duration (days)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        min={0}
-                        placeholder="Optional"
-                        {...field}
-                        value={field.value || ''}
-                        onChange={(e) =>
-                          field.onChange(
-                            e.target.value ? parseInt(e.target.value) : undefined
-                          )
-                        }
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+            <FormField
+              control={form.control}
+              name="estimatedDuration"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Estimated Duration (hours)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min={0}
+                      {...field}
+                      onChange={(e) => field.onChange(parseInt(e.target.value))}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <DialogFooter>
               <Button
@@ -167,7 +193,7 @@ export default function WorkflowPhaseFormDialog({
                 Cancel
               </Button>
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Saving...' : phase ? 'Save Changes' : 'Add Phase'}
+                {isSubmitting ? 'Saving...' : phase ? 'Save Changes' : 'Create'}
               </Button>
             </DialogFooter>
           </form>

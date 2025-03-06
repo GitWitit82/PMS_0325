@@ -1,24 +1,26 @@
 'use client'
 
 import { useTheme } from 'next-themes'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
-import interactionPlugin from '@fullcalendar/interaction'
+import interactionPlugin, { EventResizeDoneArg } from '@fullcalendar/interaction'
+import multiMonthPlugin from '@fullcalendar/multimonth'
 import listPlugin from '@fullcalendar/list'
 import resourceTimelinePlugin from '@fullcalendar/resource-timeline'
-import { type EventSourceInput } from '@fullcalendar/core'
+import { type EventSourceInput, EventClickArg, DateSelectArg, EventDropArg } from '@fullcalendar/core'
+import { ResourceInput } from '@fullcalendar/resource'
 
 interface CalendarProps {
   events?: EventSourceInput
-  resources?: any[]
+  resources?: ResourceInput[]
   view?: 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay' | 'listWeek' | 'resourceTimeline'
   height?: string | number
-  onEventClick?: (info: any) => void
-  onDateSelect?: (info: any) => void
-  onEventDrop?: (info: any) => void
-  onEventResize?: (info: any) => void
+  onEventClick?: (arg: EventClickArg) => void
+  onSelect?: (arg: DateSelectArg) => void
+  onEventDrop?: (arg: EventDropArg) => void
+  onEventResize?: (arg: EventResizeDoneArg) => void
 }
 
 /**
@@ -33,29 +35,30 @@ export function Calendar({
   view = 'dayGridMonth',
   height = 'auto',
   onEventClick,
-  onDateSelect,
+  onSelect,
   onEventDrop,
   onEventResize,
 }: CalendarProps) {
   const { theme } = useTheme()
-  const [mounted, setMounted] = useState(false)
+  const calendarRef = useRef<FullCalendar>(null)
 
-  // Wait for client-side hydration to prevent theme mismatch
   useEffect(() => {
-    setMounted(true)
+    const calendar = calendarRef.current
+    if (calendar) {
+      const calendarApi = calendar.getApi()
+      calendarApi.updateSize()
+    }
   }, [])
-
-  if (!mounted) {
-    return null
-  }
 
   return (
     <div className={`calendar-wrapper ${theme === 'dark' ? 'fc-dark' : ''}`}>
       <FullCalendar
+        ref={calendarRef}
         plugins={[
           dayGridPlugin,
           timeGridPlugin,
           interactionPlugin,
+          multiMonthPlugin,
           listPlugin,
           resourceTimelinePlugin,
         ]}
@@ -63,7 +66,7 @@ export function Calendar({
         headerToolbar={{
           left: 'prev,next today',
           center: 'title',
-          right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek,resourceTimeline',
+          right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek',
         }}
         editable={true}
         selectable={true}
@@ -74,7 +77,7 @@ export function Calendar({
         events={events}
         resources={resources}
         eventClick={onEventClick}
-        select={onDateSelect}
+        select={onSelect}
         eventDrop={onEventDrop}
         eventResize={onEventResize}
         // Theme-specific options
@@ -89,7 +92,7 @@ export function Calendar({
         stickyHeaderDates={true}
         // Resource view specific options
         resourceAreaWidth="15%"
-        resourceLabelText="Resources"
+        resourceLabelContent="Resources"
       />
     </div>
   )

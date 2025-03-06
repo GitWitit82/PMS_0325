@@ -23,6 +23,10 @@ interface ControlledSearchInputProps
   onSearch: (value: string) => void | Promise<void>
   onSuggestionSelect?: (suggestion: SearchSuggestion) => void
   debounceMs?: number
+  placeholder?: string
+  value: string
+  onChange: (value: string) => void
+  className?: string
 }
 
 /**
@@ -30,7 +34,6 @@ interface ControlledSearchInputProps
  */
 export const ControlledSearchInput = forwardRef<HTMLInputElement, ControlledSearchInputProps>(
   ({
-    className,
     label,
     error,
     helperText,
@@ -41,10 +44,12 @@ export const ControlledSearchInput = forwardRef<HTMLInputElement, ControlledSear
     debounceMs = 300,
     disabled = false,
     required = false,
+    placeholder = "Search...",
+    value,
+    onChange,
+    className,
     ...props
   }, ref) => {
-    const [value, setValue] = useState("")
-    const [isFocused, setIsFocused] = useState(false)
     const [showSuggestions, setShowSuggestions] = useState(false)
     const wrapperRef = useRef<HTMLDivElement>(null)
     const debouncedValue = useDebounce(value, debounceMs)
@@ -66,21 +71,22 @@ export const ControlledSearchInput = forwardRef<HTMLInputElement, ControlledSear
       return () => document.removeEventListener("mousedown", handleClickOutside)
     }, [])
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      setValue(e.target.value)
-      setShowSuggestions(true)
-    }
-
     const handleSuggestionClick = (suggestion: SearchSuggestion) => {
-      setValue(suggestion.label)
+      onChange(suggestion.value)
       setShowSuggestions(false)
       onSuggestionSelect?.(suggestion)
     }
 
     const handleClear = () => {
-      setValue("")
+      onChange("")
       setShowSuggestions(false)
       onSearch("")
+    }
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const newValue = e.target.value
+      onChange(newValue)
+      setShowSuggestions(true)
     }
 
     return (
@@ -100,9 +106,9 @@ export const ControlledSearchInput = forwardRef<HTMLInputElement, ControlledSear
             <Input
               ref={ref}
               type="search"
+              placeholder={placeholder}
               value={value}
-              onChange={handleChange}
-              onFocus={() => setIsFocused(true)}
+              onChange={handleInputChange}
               disabled={disabled}
               className={cn(
                 "pl-8 pr-8",

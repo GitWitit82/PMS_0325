@@ -1,9 +1,11 @@
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import prisma from '@/lib/prisma';
+import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
+import { WorkflowUpdateData } from "@/types/workflow";
+import { type Session } from "next-auth";
 
 const batchUpdateSchema = z.object({
   items: z.array(z.object({
@@ -15,12 +17,22 @@ const batchUpdateSchema = z.object({
   })).min(1).max(50),
 });
 
+const batchPatchSchema = z.object({
+  ids: z.array(z.string()).min(1),
+  data: z.object({
+    name: z.string().min(1).max(255).trim().optional(),
+    description: z.string().max(1000).trim().optional(),
+    version: z.string().min(1).max(50).trim().optional(),
+    isActive: z.boolean().optional(),
+  }),
+});
+
 const batchDeleteSchema = z.object({
   ids: z.array(z.string()).min(1).max(50),
 });
 
 // Helper function to check if user has required role
-async function validateUserPermissions(session: any) {
+async function validateUserPermissions(session: Session | null) {
   if (!session?.user?.id) {
     throw new Error('Unauthorized');
   }
@@ -60,8 +72,29 @@ async function validateWorkflows(ids: string[]) {
   return workflows;
 }
 
+interface RouteParams {
+  workflowId?: string;
+  phaseId?: string;
+  taskId?: string;
+}
+
 export async function PUT(request: Request) {
   try {
+    const url = new URL(request.url);
+    const params: RouteParams = {};
+    const pathParts = url.pathname.split("/");
+    if (pathParts.includes("workflows")) {
+      const workflowId = pathParts[pathParts.indexOf("workflows") + 1];
+      if (workflowId && workflowId !== "batch") params.workflowId = workflowId;
+    }
+    if (pathParts.includes("phases")) {
+      const phaseId = pathParts[pathParts.indexOf("phases") + 1];
+      if (phaseId && phaseId !== "batch") params.phaseId = phaseId;
+    }
+    if (pathParts.includes("tasks")) {
+      const taskId = pathParts[pathParts.indexOf("tasks") + 1];
+      if (taskId && taskId !== "batch") params.taskId = taskId;
+    }
     const session = await getServerSession(authOptions);
     if (!session) {
       return new NextResponse('Unauthorized', { status: 401 });
@@ -156,6 +189,21 @@ export async function PUT(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    const url = new URL(request.url);
+    const params: RouteParams = {};
+    const pathParts = url.pathname.split("/");
+    if (pathParts.includes("workflows")) {
+      const workflowId = pathParts[pathParts.indexOf("workflows") + 1];
+      if (workflowId && workflowId !== "batch") params.workflowId = workflowId;
+    }
+    if (pathParts.includes("phases")) {
+      const phaseId = pathParts[pathParts.indexOf("phases") + 1];
+      if (phaseId && phaseId !== "batch") params.phaseId = phaseId;
+    }
+    if (pathParts.includes("tasks")) {
+      const taskId = pathParts[pathParts.indexOf("tasks") + 1];
+      if (taskId && taskId !== "batch") params.taskId = taskId;
+    }
     const session = await getServerSession(authOptions);
     if (!session) {
       return new NextResponse('Unauthorized', { status: 401 });
@@ -228,5 +276,34 @@ export async function DELETE(request: Request) {
     }
 
     return new NextResponse('Internal Server Error', { status: 500 });
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const body = await request.json();
+    const { ids, data } = batchPatchSchema.parse(body);
+
+    const updatedWorkflows = await prisma.workflow.updateMany({
+      where: {
+        id: {
+          in: ids,
+        },
+      },
+      data: data as WorkflowUpdateData,
+    });
+
+    return NextResponse.json(updatedWorkflows);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: "Invalid request data" },
+        { status: 400 }
+      );
+    }
+    return NextResponse.json(
+      { error: "Failed to update workflows" },
+      { status: 500 }
+    );
   }
 } 

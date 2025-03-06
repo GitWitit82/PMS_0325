@@ -1,94 +1,149 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
-import { prisma } from "@/lib/prisma"
-import { hash, compare } from "bcryptjs"
-import { z } from "zod"
 import { authOptions } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
+import { hash } from "bcryptjs"
+import { UserRole } from "@prisma/client"
 
-const profileSchema = z.object({
-  name: z.string().min(2),
-  email: z.string().email(),
-  currentPassword: z.string(),
-  newPassword: z.string().optional(),
-})
+interface SessionUser {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+}
 
-export async function PATCH(req: Request) {
+interface CustomSession {
+  user: SessionUser;
+}
+
+export async function GET() {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions) as CustomSession
 
-    if (!session?.user) {
-      return NextResponse.json(
-        { message: "Unauthorized" },
-        { status: 401 }
-      )
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
-    const body = await req.json()
-    const { name, email, currentPassword, newPassword } = profileSchema.parse(body)
-
-    // Get current user
     const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
+      where: { email: session.user.email },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        image: true,
+        role: true,
+        department: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
     })
 
     if (!user) {
-      return NextResponse.json(
-        { message: "User not found" },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    // Verify current password
-    const isPasswordValid = await compare(currentPassword, user.password!)
+    return NextResponse.json(user)
+  } catch (error) {
+    console.error("Error fetching user profile:", error)
+    return NextResponse.json(
+      { error: "Failed to fetch user profile" },
+      { status: 500 }
+    )
+  }
+}
 
-    if (!isPasswordValid) {
-      return NextResponse.json(
-        { message: "Current password is incorrect" },
-        { status: 400 }
-      )
+export async function PATCH(req: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions)
+
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
-    // Check if new email is already taken
-    if (email !== user.email) {
-      const existingUser = await prisma.user.findUnique({
-        where: { email },
-      })
+    const data = await req.json()
+    const { name, currentPassword, newPassword } = data
 
-      if (existingUser) {
-        return NextResponse.json(
-          { message: "Email already in use" },
-          { status: 400 }
-        )
-      }
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      select: { id: true, password: true },
+    })
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    // Update user
+    const updateData: Record<string, string> = {}
+
+    if (name) {
+      updateData.name = name
+    }
+
+    if (currentPassword && newPassword) {
+      const hashedPassword = await hash(newPassword, 12)
+      updateData.password = hashedPassword
+    }
+
     const updatedUser = await prisma.user.update({
       where: { id: user.id },
+      data: updateData,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        image: true,
+        role: true,
+        department: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    })
+
+    return NextResponse.json(updatedUser)
+  } catch (error) {
+    console.error("Error updating user profile:", error)
+    return NextResponse.json(
+      { error: "Failed to update user profile" },
+      { status: 500 }
+    )
+  }
+}
+
+export async function PUT(request: Request) {
+  try {
+    const session = await getServerSession(authOptions) as CustomSession
+
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+    }
+
+    const body = await request.json()
+
+    const user = await prisma.user.update({
+      where: { email: session.user.email },
       data: {
-        name,
-        email,
-        ...(newPassword && { password: await hash(newPassword, 12) }),
+        name: body.name,
+        image: body.image,
       },
       select: {
         id: true,
         name: true,
         email: true,
         image: true,
+        role: true,
       },
     })
 
-    return NextResponse.json(updatedUser)
+    return NextResponse.json(user)
   } catch (error) {
-    console.error("Profile update error:", error)
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { message: "Invalid input data" },
-        { status: 400 }
-      )
-    }
+    console.error("Error updating user profile:", error)
     return NextResponse.json(
-      { message: "Failed to update profile" },
+      { error: "Failed to update user profile" },
       { status: 500 }
     )
   }

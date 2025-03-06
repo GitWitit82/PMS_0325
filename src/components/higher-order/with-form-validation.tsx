@@ -1,24 +1,26 @@
 "use client"
 
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm } from "react-hook-form"
-import { z } from "zod"
+import { useForm, type DefaultValues } from "react-hook-form"
+import * as z from "zod"
 
 interface WithFormValidationProps<T extends z.ZodType> {
   schema: T
-  onSubmit: (data: z.infer<T>) => void | Promise<void>
-  defaultValues?: Partial<z.infer<T>>
+  defaultValues?: DefaultValues<z.infer<T>>
+  onSubmit: (data: z.infer<T>) => Promise<void>
 }
 
 /**
  * HOC to add form validation capabilities
  * @param Component - Component to wrap
  */
-export function withFormValidation<
-  T extends z.ZodType,
-  P extends WithFormValidationProps<T>
->(WrappedComponent: React.ComponentType<P>) {
-  return function WithFormValidation(props: P) {
+export function withFormValidation<T extends z.ZodType>(
+  WrappedComponent: React.ComponentType<{
+    form: ReturnType<typeof useForm<z.infer<T>>>
+    onSubmit: (data: z.infer<T>) => Promise<void>
+  }>
+) {
+  return function WithFormValidation(props: WithFormValidationProps<T>) {
     const form = useForm<z.infer<T>>({
       resolver: zodResolver(props.schema),
       defaultValues: props.defaultValues,

@@ -11,30 +11,28 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Button } from '@/components/ui/button';
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { X } from 'lucide-react';
-import { WorkflowTask } from '@/types/workflow';
-import { cn } from '@/lib/utils';
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { X } from "lucide-react";
+import { type WorkflowTaskTableItem } from "@/types/workflow";
 
 const taskSchema = z.object({
   id: z.string().uuid(),
@@ -52,7 +50,7 @@ const formSchema = z.object({
 type FormData = z.infer<typeof formSchema>;
 
 interface TaskBatchUpdateDialogProps {
-  tasks: WorkflowTask[];
+  tasks: WorkflowTaskTableItem[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }

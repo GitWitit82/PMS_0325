@@ -1,14 +1,5 @@
-import { withAuthorization } from "@/components/higher-order/with-authorization"
+import UsersPageClient from "@/components/admin/users/users-page"
 
-function UsersPage() {
-  return (
-    <div>
-      <h1>Users Management</h1>
-      {/* Users management UI */}
-    </div>
-  )
-}
-
-export default withAuthorization(UsersPage, {
-  allowedRoles: ["ADMINISTRATOR"],
-}) 
+export default function UsersPage() {
+  return <UsersPageClient />
+} 

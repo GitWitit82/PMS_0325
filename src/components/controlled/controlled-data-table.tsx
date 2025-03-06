@@ -1,18 +1,20 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import * as React from "react"
 import {
   ColumnDef,
-  ColumnFiltersState,
-  SortingState,
-  VisibilityState,
   flexRender,
   getCoreRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
   useReactTable,
+  getPaginationRowModel,
+  SortingState,
+  getSortedRowModel,
+  ColumnFiltersState,
+  getFilteredRowModel,
 } from "@tanstack/react-table"
+import { useQuery } from "@tanstack/react-query"
+import { type WorkflowTableItem } from "@/types/workflow"
+
 import {
   Table,
   TableBody,
@@ -22,134 +24,77 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
-import { DataTablePagination } from "./data-table-pagination"
-import { DataTableViewOptions } from "./data-table-view-options"
-import { ChevronDown, Search } from "lucide-react"
 
-interface ControlledDataTableProps<TData, TValue> {
+interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
-  data: TData[]
-  onRowClick?: (row: TData) => void
-  enableSearch?: boolean
-  enableColumnVisibility?: boolean
-  enablePagination?: boolean
-  enableSorting?: boolean
-  searchPlaceholder?: string
-  noResultsMessage?: string
-  pageSize?: number
 }
 
-/**
- * Controlled data table component with sorting, filtering, and pagination
- */
-export function ControlledDataTable<TData, TValue>({
+export function DataTable<TData, TValue>({
   columns,
-  data,
-  onRowClick,
-  enableSearch = true,
-  enableColumnVisibility = true,
-  enablePagination = true,
-  enableSorting = true,
-  searchPlaceholder = "Search...",
-  noResultsMessage = "No results found.",
-  pageSize = 10,
-}: ControlledDataTableProps<TData, TValue>) {
-  const [sorting, setSorting] = useState<SortingState>([])
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
-  const [globalFilter, setGlobalFilter] = useState("")
+}: DataTableProps<TData, TValue>) {
+  const [sorting, setSorting] = React.useState<SortingState>([])
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
 
-  const table = useReactTable({
-    data,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: enablePagination ? getPaginationRowModel() : undefined,
-    getSortedRowModel: enableSorting ? getSortedRowModel() : undefined,
-    getFilteredRowModel: getFilteredRowModel(),
-    onSortingChange: setSorting,
-    onColumnFiltersChange: setColumnFilters,
-    onColumnVisibilityChange: setColumnVisibility,
-    onGlobalFilterChange: setGlobalFilter,
-    state: {
-      sorting,
-      columnFilters,
-      columnVisibility,
-      globalFilter,
-    },
-    initialState: {
-      pagination: {
-        pageSize,
-      },
+  const { data: workflows = [], isLoading } = useQuery<WorkflowTableItem[]>({
+    queryKey: ["workflows"],
+    queryFn: async () => {
+      const response = await fetch("/api/workflows")
+      if (!response.ok) {
+        throw new Error("Network response was not ok")
+      }
+      return response.json()
     },
   })
 
-  const handleRowClick = useCallback(
-    (row: TData) => {
-      if (onRowClick) {
-        onRowClick(row)
-      }
+  const table = useReactTable({
+    data: workflows as TData[],
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    onSortingChange: setSorting,
+    getSortedRowModel: getSortedRowModel(),
+    onColumnFiltersChange: setColumnFilters,
+    getFilteredRowModel: getFilteredRowModel(),
+    state: {
+      sorting,
+      columnFilters,
     },
-    [onRowClick]
-  )
+  })
+
+  if (isLoading) {
+    return <div>Loading...</div>
+  }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        {enableSearch && (
-          <div className="flex items-center gap-2">
-            <Search className="h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder={searchPlaceholder}
-              value={globalFilter ?? ""}
-              onChange={(event) => setGlobalFilter(event.target.value)}
-              className="max-w-sm"
-            />
-          </div>
-        )}
-        {enableColumnVisibility && <DataTableViewOptions table={table} />}
+    <div>
+      <div className="flex items-center py-4">
+        <Input
+          placeholder="Filter workflows..."
+          value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
+          onChange={(event) =>
+            table.getColumn("name")?.setFilterValue(event.target.value)
+          }
+          className="max-w-sm"
+        />
       </div>
       <div className="rounded-md border">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
-                    {header.isPlaceholder ? null : (
-                      <div>
-                        {enableSorting && header.column.getCanSort() ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="-ml-3 h-8"
-                            onClick={header.column.getToggleSortingHandler()}
-                          >
-                            {flexRender(
-                              header.column.columnDef.header,
-                              header.getContext()
-                            )}
-                            {{
-                              asc: " 🔼",
-                              desc: " 🔽",
-                            }[header.column.getIsSorted() as string] ?? null}
-                          </Button>
-                        ) : (
-                          flexRender(
+                {headerGroup.headers.map((header) => {
+                  return (
+                    <TableHead key={header.id}>
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
                             header.column.columnDef.header,
                             header.getContext()
-                          )
-                        )}
-                      </div>
-                    )}
-                  </TableHead>
-                ))}
+                          )}
+                    </TableHead>
+                  )
+                })}
               </TableRow>
             ))}
           </TableHeader>
@@ -159,8 +104,6 @@ export function ControlledDataTable<TData, TValue>({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
-                  onClick={() => handleRowClick(row.original)}
-                  className={onRowClick ? "cursor-pointer" : undefined}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
@@ -178,14 +121,31 @@ export function ControlledDataTable<TData, TValue>({
                   colSpan={columns.length}
                   className="h-24 text-center"
                 >
-                  {noResultsMessage}
+                  No results.
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
       </div>
-      {enablePagination && <DataTablePagination table={table} />}
+      <div className="flex items-center justify-end space-x-2 py-4">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => table.previousPage()}
+          disabled={!table.getCanPreviousPage()}
+        >
+          Previous
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => table.nextPage()}
+          disabled={!table.getCanNextPage()}
+        >
+          Next
+        </Button>
+      </div>
     </div>
   )
 } 

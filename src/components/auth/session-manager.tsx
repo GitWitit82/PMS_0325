@@ -4,7 +4,6 @@ import { useSession, signOut } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { useEffect, useState, useCallback } from "react"
 import { toast } from "@/components/ui/use-toast"
-import { TokenService } from "@/lib/auth/token-service"
 
 interface SessionManagerProps {
   children: React.ReactNode
@@ -17,7 +16,7 @@ export function SessionManager({
   inactivityTimeout = 30, // Default 30 minutes
   warningTime = 60, // Default 60 seconds warning
 }: SessionManagerProps) {
-  const { data: session, status, update } = useSession()
+  const { status } = useSession()
   const router = useRouter()
   const [lastActivity, setLastActivity] = useState<number>(Date.now())
   const [showWarning, setShowWarning] = useState(false)
@@ -101,32 +100,6 @@ export function SessionManager({
 
     return () => clearInterval(interval)
   }, [lastActivity, timeoutMs, warningMs, showWarning, status, handleSessionExpiration, updateActivity, warningTime])
-
-  // Token refresh logic
-  useEffect(() => {
-    if (status !== "authenticated" || !session?.accessToken) return
-
-    const checkAndRefreshToken = async () => {
-      try {
-        if (TokenService.isTokenExpired(session.accessToken as string)) {
-          const newToken = await TokenService.refreshToken(session.accessToken as string)
-          if (newToken) {
-            await update({ accessToken: newToken })
-          } else {
-            handleSessionExpiration()
-          }
-        }
-      } catch (error) {
-        console.error("Token refresh failed:", error)
-        handleSessionExpiration()
-      }
-    }
-
-    const tokenCheckInterval = setInterval(checkAndRefreshToken, 1000 * 60) // Check every minute
-    checkAndRefreshToken() // Initial check
-
-    return () => clearInterval(tokenCheckInterval)
-  }, [session, status, update, handleSessionExpiration])
 
   return <>{children}</>
 } 

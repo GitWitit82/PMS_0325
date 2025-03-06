@@ -1,8 +1,11 @@
-import { type Theme } from '@/types/theme'
+import { type Theme } from '@/types/theme';
+import { type ChartData, type ChartOptions } from 'chart.js';
 
-/**
- * Default chart colors for light and dark themes
- */
+export interface ChartConfig {
+  data: ChartData;
+  options: ChartOptions;
+}
+
 export const chartColors = {
   light: [
     'var(--chart-1)',
@@ -18,78 +21,102 @@ export const chartColors = {
     'var(--chart-4)',
     'var(--chart-5)',
   ],
-}
+};
 
-/**
- * Common chart configuration options
- */
 export const chartConfig = {
   margin: { top: 20, right: 20, bottom: 20, left: 20 },
   animationDuration: 300,
   strokeWidth: 2,
   dotSize: 4,
-}
+};
 
-/**
- * Get responsive container aspect ratio based on chart type
- * @param {string} chartType - The type of chart
- * @returns {number} The aspect ratio for the responsive container
- */
 export const getChartAspectRatio = (chartType: string): number => {
   switch (chartType) {
     case 'pie':
     case 'donut':
-      return 1 // Square aspect ratio for pie/donut charts
+      return 1;
     case 'bar':
     case 'line':
-      return 16 / 9 // Widescreen aspect ratio for bar/line charts
+      return 16 / 9;
     default:
-      return 4 / 3 // Default aspect ratio
+      return 4 / 3;
   }
-}
+};
 
-/**
- * Get chart colors based on current theme
- * @param {Theme} theme - Current theme (light/dark)
- * @returns {string[]} Array of chart colors
- */
 export const getChartColors = (theme: Theme): string[] => {
-  return chartColors[theme] || chartColors.light
-}
+  if (theme === 'system') {
+    // Check if user prefers dark mode
+    if (typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      return chartColors.dark;
+    }
+    return chartColors.light;
+  }
+  return chartColors[theme] || chartColors.light;
+};
 
-/**
- * Format large numbers for chart labels
- * @param {number} value - The number to format
- * @returns {string} Formatted number string
- */
 export const formatChartValue = (value: number): string => {
   if (value >= 1000000) {
-    return `${(value / 1000000).toFixed(1)}M`
+    return `${(value / 1000000).toFixed(1)}M`;
   }
   if (value >= 1000) {
-    return `${(value / 1000).toFixed(1)}K`
+    return `${(value / 1000).toFixed(1)}K`;
   }
-  return value.toString()
-}
+  return value.toString();
+};
 
-/**
- * Generate chart tooltip content
- * @param {object} props - Tooltip props from Recharts
- * @returns {JSX.Element | null} Tooltip content component
- */
-export const CustomTooltip = ({ active, payload, label }: any) => {
-  if (!active || !payload?.length) {
-    return null
+export const getRandomColor = (): string => {
+  const letters = '0123456789ABCDEF';
+  let color = '#';
+  for (let i = 0; i < 6; i++) {
+    color += letters[Math.floor(Math.random() * 16)];
   }
+  return color;
+};
 
-  return (
-    <div className="rounded-lg bg-background p-2 shadow-lg ring-1 ring-border">
-      <p className="mb-1 font-medium">{label}</p>
-      {payload.map((entry: any, index: number) => (
-        <p key={index} style={{ color: entry.color }}>
-          {entry.name}: {formatChartValue(entry.value)}
-        </p>
-      ))}
-    </div>
-  )
-} 
+export const generateGradient = (
+  ctx: CanvasRenderingContext2D,
+  startColor: string,
+  endColor: string
+): CanvasGradient => {
+  const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+  gradient.addColorStop(0, startColor);
+  gradient.addColorStop(1, endColor);
+  return gradient;
+};
+
+export const generateChartConfig = (
+  type: 'line' | 'bar' | 'pie' | 'doughnut',
+  labels: string[],
+  datasets: Array<{
+    label: string;
+    data: number[];
+    backgroundColor?: string | string[];
+    borderColor?: string;
+  }>,
+  options: Partial<ChartOptions> = {}
+): ChartConfig => {
+  return {
+    data: {
+      labels,
+      datasets: datasets.map((dataset) => ({
+        ...dataset,
+        backgroundColor: dataset.backgroundColor || getRandomColor(),
+        borderColor: dataset.borderColor || getRandomColor(),
+      })),
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: {
+          position: 'top' as const,
+        },
+        title: {
+          display: true,
+          text: options.plugins?.title?.text || '',
+        },
+      },
+      ...options,
+    },
+  };
+}; 

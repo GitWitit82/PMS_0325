@@ -186,10 +186,11 @@ export default function SignUp() {
           </Button>
           <Button
             variant="outline"
+            type="button"
             onClick={() => signIn("github", { callbackUrl: "/dashboard" })}
             disabled={isLoading}
           >
-            <Icons.gitHub className="mr-2 h-4 w-4" />
+            <Icons.github className="mr-2 h-4 w-4" />
             GitHub
           </Button>
         </div>

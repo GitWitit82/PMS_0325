@@ -1,22 +1,27 @@
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { ShieldAlert } from "lucide-react"
 import Link from "next/link"
+import { cn } from "@/lib/utils"
+import { buttonVariants } from "@/components/ui/button"
 
 export default function UnauthorizedPage() {
   return (
-    <div className="container flex h-screen w-screen flex-col items-center justify-center">
-      <Card className="mx-auto flex w-full max-w-md flex-col items-center justify-center space-y-4 p-8">
-        <ShieldAlert className="h-12 w-12 text-destructive" />
-        <h2 className="text-2xl font-bold">Access Denied</h2>
-        <p className="text-center text-muted-foreground">
-          You don't have permission to access this page. Please contact your
-          administrator if you believe this is an error.
-        </p>
-        <Button asChild>
-          <Link href="/dashboard">Return to Dashboard</Link>
-        </Button>
-      </Card>
+    <div className="container flex h-screen w-full flex-col items-center justify-center">
+      <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
+        <div className="flex flex-col space-y-2 text-center">
+          <h1 className="text-2xl font-semibold tracking-tight">Unauthorized Access</h1>
+          <p className="text-sm text-muted-foreground">
+            You don&apos;t have permission to access this page
+          </p>
+        </div>
+        <Link
+          href="/auth/signin"
+          className={cn(
+            buttonVariants({ variant: "default" }),
+            "w-full"
+          )}
+        >
+          Sign In
+        </Link>
+      </div>
     </div>
   )
 } 

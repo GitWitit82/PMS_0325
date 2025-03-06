@@ -1,9 +1,9 @@
-import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import prisma from '@/lib/prisma';
-import { z } from 'zod';
-import { Prisma } from '@prisma/client';
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { z } from "zod";
+import { Prisma } from "@prisma/client";
 
 const batchUpdateSchema = z.object({
   items: z.array(z.object({
@@ -28,7 +28,7 @@ const batchReorderSchema = z.object({
 });
 
 // Helper function to check if user has required role
-async function validateUserPermissions(session: any) {
+async function validateUserPermissions(session: { user?: { id?: string } }) {
   if (!session?.user?.id) {
     throw new Error('Unauthorized');
   }
@@ -86,8 +86,29 @@ async function validatePhases(ids: string[]) {
   return phases;
 }
 
+interface RouteParams {
+  workflowId?: string;
+  phaseId?: string;
+  taskId?: string;
+}
+
 export async function PUT(request: Request) {
   try {
+    const url = new URL(request.url);
+    const params: RouteParams = {};
+    const pathParts = url.pathname.split("/");
+    if (pathParts.includes("workflows")) {
+      const workflowId = pathParts[pathParts.indexOf("workflows") + 1];
+      if (workflowId && workflowId !== "batch") params.workflowId = workflowId;
+    }
+    if (pathParts.includes("phases")) {
+      const phaseId = pathParts[pathParts.indexOf("phases") + 1];
+      if (phaseId && phaseId !== "batch") params.phaseId = phaseId;
+    }
+    if (pathParts.includes("tasks")) {
+      const taskId = pathParts[pathParts.indexOf("tasks") + 1];
+      if (taskId && taskId !== "batch") params.taskId = taskId;
+    }
     const session = await getServerSession(authOptions);
     if (!session) {
       return new NextResponse('Unauthorized', { status: 401 });
@@ -194,6 +215,21 @@ export async function PUT(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    const url = new URL(request.url);
+    const params: RouteParams = {};
+    const pathParts = url.pathname.split("/");
+    if (pathParts.includes("workflows")) {
+      const workflowId = pathParts[pathParts.indexOf("workflows") + 1];
+      if (workflowId && workflowId !== "batch") params.workflowId = workflowId;
+    }
+    if (pathParts.includes("phases")) {
+      const phaseId = pathParts[pathParts.indexOf("phases") + 1];
+      if (phaseId && phaseId !== "batch") params.phaseId = phaseId;
+    }
+    if (pathParts.includes("tasks")) {
+      const taskId = pathParts[pathParts.indexOf("tasks") + 1];
+      if (taskId && taskId !== "batch") params.taskId = taskId;
+    }
     const session = await getServerSession(authOptions);
     if (!session) {
       return new NextResponse('Unauthorized', { status: 401 });
@@ -265,6 +301,21 @@ export async function DELETE(request: Request) {
 // Special endpoint for reordering phases
 export async function PATCH(request: Request) {
   try {
+    const url = new URL(request.url);
+    const params: RouteParams = {};
+    const pathParts = url.pathname.split("/");
+    if (pathParts.includes("workflows")) {
+      const workflowId = pathParts[pathParts.indexOf("workflows") + 1];
+      if (workflowId && workflowId !== "batch") params.workflowId = workflowId;
+    }
+    if (pathParts.includes("phases")) {
+      const phaseId = pathParts[pathParts.indexOf("phases") + 1];
+      if (phaseId && phaseId !== "batch") params.phaseId = phaseId;
+    }
+    if (pathParts.includes("tasks")) {
+      const taskId = pathParts[pathParts.indexOf("tasks") + 1];
+      if (taskId && taskId !== "batch") params.taskId = taskId;
+    }
     const session = await getServerSession(authOptions);
     if (!session) {
       return new NextResponse('Unauthorized', { status: 401 });

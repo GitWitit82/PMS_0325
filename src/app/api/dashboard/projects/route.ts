@@ -1,42 +1,47 @@
-import { prisma } from "@/lib/db"
 import { NextResponse } from "next/server"
+import { prisma } from "@/lib/prisma"
+import { ProjectStatus } from "@prisma/client"
 
 /**
  * GET handler for project statistics
  */
 export async function GET() {
   try {
+    // Get project statistics
     const [
       totalProjects,
       activeProjects,
       projectsByStatus,
-      projectsByDepartment
+      projectsByPriority,
+      projectsByDepartment,
     ] = await Promise.all([
       prisma.project.count(),
       prisma.project.count({
-        where: { status: "IN_PROGRESS" }
+        where: { status: ProjectStatus.ACTIVE }
       }),
       prisma.project.groupBy({
         by: ["status"],
         _count: true,
       }),
       prisma.project.groupBy({
+        by: ["priority"],
+        _count: true,
+      }),
+      prisma.project.groupBy({
         by: ["departmentId"],
         _count: true,
-        where: {
-          departmentId: { not: null }
-        }
-      })
+      }),
     ])
 
     return NextResponse.json({
       totalProjects,
       activeProjects,
       projectsByStatus,
-      projectsByDepartment
+      projectsByPriority,
+      projectsByDepartment,
     })
   } catch (error) {
-    console.error("Failed to fetch project statistics:", error)
+    console.error("Error fetching project statistics:", error)
     return NextResponse.json(
       { error: "Failed to fetch project statistics" },
       { status: 500 }

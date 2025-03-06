@@ -1,4 +1,4 @@
-import { PrismaAdapter } from "@auth/prisma-adapter"
+import { PrismaAdapter } from "@next-auth/prisma-adapter"
 import { NextAuthOptions } from "next-auth"
 import { prisma } from "@/lib/prisma"
 import CredentialsProvider from "next-auth/providers/credentials"
@@ -16,7 +16,7 @@ export const authOptions: NextAuthOptions = {
   },
   pages: {
     signIn: "/auth/signin",
-    signUp: "/auth/signup",
+    newUser: "/auth/signup",
     error: "/auth/error",
     verifyRequest: "/auth/verify",
   },
@@ -29,7 +29,7 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          throw new Error("Invalid credentials")
+          return null
         }
 
         const user = await prisma.user.findUnique({
@@ -37,20 +37,21 @@ export const authOptions: NextAuthOptions = {
         })
 
         if (!user || !user.password) {
-          throw new Error("Invalid credentials")
+          return null
         }
 
         const isValid = await bcrypt.compare(credentials.password, user.password)
 
         if (!isValid) {
-          throw new Error("Invalid credentials")
+          return null
         }
 
         return {
           id: user.id,
           email: user.email,
-          name: user.name,
+          name: user.name || "",
           role: user.role,
+          image: user.image || "",
         }
       },
     }),
@@ -68,6 +69,7 @@ export const authOptions: NextAuthOptions = {
       if (token) {
         session.user.id = token.id
         session.user.role = token.role
+        session.user.image = token.image || ""
       }
       return session
     },
@@ -75,6 +77,7 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id
         token.role = user.role
+        token.image = user.image || ""
       }
       return token
     },

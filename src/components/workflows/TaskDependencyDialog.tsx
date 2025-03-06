@@ -29,7 +29,29 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Plus, Trash2 } from 'lucide-react';
-import { WorkflowTask } from '@/types/workflow';
+import { WorkflowTaskTableItem } from '@/types/workflow';
+
+type DependencyType = "FINISH_TO_START" | "START_TO_START" | "FINISH_TO_FINISH" | "START_TO_FINISH"
+
+interface TaskDependency {
+  sourceTaskId: string
+  targetTaskId: string
+  dependencyType: DependencyType
+}
+
+interface TaskDependencyDialogProps {
+  tasks: WorkflowTaskTableItem[]
+  dependencies: TaskDependency[]
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}
+
+const DEPENDENCY_TYPES = [
+  { value: 'FINISH_TO_START', label: 'Finish to Start' },
+  { value: 'START_TO_START', label: 'Start to Start' },
+  { value: 'FINISH_TO_FINISH', label: 'Finish to Finish' },
+  { value: 'START_TO_FINISH', label: 'Start to Finish' },
+];
 
 const dependencySchema = z.object({
   dependencies: z.array(z.object({
@@ -40,24 +62,6 @@ const dependencySchema = z.object({
 });
 
 type FormData = z.infer<typeof dependencySchema>;
-
-interface TaskDependencyDialogProps {
-  tasks: WorkflowTask[];
-  dependencies: Array<{
-    sourceTaskId: string;
-    targetTaskId: string;
-    dependencyType: string;
-  }>;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}
-
-const DEPENDENCY_TYPES = [
-  { value: 'FINISH_TO_START', label: 'Finish to Start' },
-  { value: 'START_TO_START', label: 'Start to Start' },
-  { value: 'FINISH_TO_FINISH', label: 'Finish to Finish' },
-  { value: 'START_TO_FINISH', label: 'Start to Finish' },
-];
 
 export function TaskDependencyDialog({
   tasks,
@@ -75,7 +79,7 @@ export function TaskDependencyDialog({
       dependencies: dependencies.length > 0 ? dependencies : [{
         sourceTaskId: '',
         targetTaskId: '',
-        dependencyType: 'FINISH_TO_START',
+        dependencyType: 'FINISH_TO_START' as const,
       }],
     },
   });
@@ -131,7 +135,7 @@ export function TaskDependencyDialog({
     append({
       sourceTaskId: '',
       targetTaskId: '',
-      dependencyType: 'FINISH_TO_START',
+      dependencyType: 'FINISH_TO_START' as const,
     });
   };
 

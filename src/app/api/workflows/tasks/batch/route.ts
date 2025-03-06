@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
@@ -29,6 +29,12 @@ const batchDependencySchema = z.object({
     dependencyType: z.enum(['FINISH_TO_START', 'START_TO_START', 'FINISH_TO_FINISH', 'START_TO_FINISH']),
   })).min(1).max(50),
 });
+
+interface RouteParams {
+  workflowId?: string;
+  phaseId?: string;
+  taskId?: string;
+}
 
 // Helper functions
 async function validateUserPermissions(userId: string) {
@@ -85,6 +91,21 @@ async function validateTasks(taskIds: string[]) {
 // Route handlers
 export async function PUT(request: Request) {
   try {
+    const url = new URL(request.url);
+    const params: RouteParams = {};
+    const pathParts = url.pathname.split("/");
+    if (pathParts.includes("workflows")) {
+      const workflowId = pathParts[pathParts.indexOf("workflows") + 1];
+      if (workflowId && workflowId !== "batch") params.workflowId = workflowId;
+    }
+    if (pathParts.includes("phases")) {
+      const phaseId = pathParts[pathParts.indexOf("phases") + 1];
+      if (phaseId && phaseId !== "batch") params.phaseId = phaseId;
+    }
+    if (pathParts.includes("tasks")) {
+      const taskId = pathParts[pathParts.indexOf("tasks") + 1];
+      if (taskId && taskId !== "batch") params.taskId = taskId;
+    }
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -142,8 +163,8 @@ export async function PUT(request: Request) {
             description: task.description,
             estimatedHours: task.estimatedHours,
             priority: task.priority,
-            requiredSkills: task.requiredSkills,
-            formTemplateJson: task.formTemplateJson,
+            requiredSkills: task.requiredSkills as Prisma.InputJsonValue,
+            formTemplateJson: task.formTemplateJson as Prisma.InputJsonValue,
           },
           include: {
             phase: {
@@ -172,6 +193,21 @@ export async function PUT(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    const url = new URL(request.url);
+    const params: RouteParams = {};
+    const pathParts = url.pathname.split("/");
+    if (pathParts.includes("workflows")) {
+      const workflowId = pathParts[pathParts.indexOf("workflows") + 1];
+      if (workflowId && workflowId !== "batch") params.workflowId = workflowId;
+    }
+    if (pathParts.includes("phases")) {
+      const phaseId = pathParts[pathParts.indexOf("phases") + 1];
+      if (phaseId && phaseId !== "batch") params.phaseId = phaseId;
+    }
+    if (pathParts.includes("tasks")) {
+      const taskId = pathParts[pathParts.indexOf("tasks") + 1];
+      if (taskId && taskId !== "batch") params.taskId = taskId;
+    }
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -216,6 +252,21 @@ export async function DELETE(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    const url = new URL(request.url);
+    const params: RouteParams = {};
+    const pathParts = url.pathname.split("/");
+    if (pathParts.includes("workflows")) {
+      const workflowId = pathParts[pathParts.indexOf("workflows") + 1];
+      if (workflowId && workflowId !== "batch") params.workflowId = workflowId;
+    }
+    if (pathParts.includes("phases")) {
+      const phaseId = pathParts[pathParts.indexOf("phases") + 1];
+      if (phaseId && phaseId !== "batch") params.phaseId = phaseId;
+    }
+    if (pathParts.includes("tasks")) {
+      const taskId = pathParts[pathParts.indexOf("tasks") + 1];
+      if (taskId && taskId !== "batch") params.taskId = taskId;
+    }
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -226,81 +277,55 @@ export async function PATCH(request: Request) {
     const body = await request.json();
     const { dependencies } = batchDependencySchema.parse(body);
 
-    // Get all task IDs involved
+    // Validate tasks existence and constraints
     const taskIds = [...new Set([
       ...dependencies.map(d => d.sourceTaskId),
       ...dependencies.map(d => d.targetTaskId),
     ])];
-
-    // Validate tasks existence and constraints
     await validateTasks(taskIds);
 
     // Check for circular dependencies
-    const dependencyMap = new Map<string, Set<string>>();
-    for (const { sourceTaskId, targetTaskId } of dependencies) {
-      if (!dependencyMap.has(sourceTaskId)) {
-        dependencyMap.set(sourceTaskId, new Set());
-      }
-      dependencyMap.get(sourceTaskId)!.add(targetTaskId);
-    }
-
     function hasCircularDependency(taskId: string, visited: Set<string> = new Set()): boolean {
-      if (visited.has(taskId)) return true;
+      if (visited.has(taskId)) {
+        return true;
+      }
       visited.add(taskId);
-      const deps = dependencyMap.get(taskId);
-      if (deps) {
-        for (const depId of deps) {
-          if (hasCircularDependency(depId, new Set(visited))) return true;
-        }
-      }
-      return false;
+      const nextTasks = dependencies
+        .filter(d => d.sourceTaskId === taskId)
+        .map(d => d.targetTaskId);
+      return nextTasks.some(t => hasCircularDependency(t, new Set(visited)));
     }
 
-    for (const taskId of dependencyMap.keys()) {
-      if (hasCircularDependency(taskId)) {
-        throw new Error('Circular dependencies detected');
+    for (const { sourceTaskId } of dependencies) {
+      if (hasCircularDependency(sourceTaskId)) {
+        throw new Error('Circular dependency detected');
       }
     }
 
-    // Update dependencies
-    await prisma.$transaction([
-      // Clear existing dependencies for involved tasks
-      prisma.taskDependency.deleteMany({
-        where: {
-          OR: [
-            { sourceTaskId: { in: taskIds } },
-            { targetTaskId: { in: taskIds } },
-          ],
-        },
-      }),
-      // Create new dependencies
-      prisma.taskDependency.createMany({
-        data: dependencies,
-      }),
-    ]);
+    // Create dependencies
+    const createdDependencies = await prisma.$transaction(
+      dependencies.map(dep =>
+        prisma.taskDependency.create({
+          data: {
+            sourceTaskId: dep.sourceTaskId,
+            targetTaskId: dep.targetTaskId,
+            dependencyType: dep.dependencyType,
+          },
+        })
+      )
+    );
 
-    // Return updated dependencies
-    const updatedDependencies = await prisma.taskDependency.findMany({
-      where: {
-        OR: [
-          { sourceTaskId: { in: taskIds } },
-          { targetTaskId: { in: taskIds } },
-        ],
-      },
-      include: {
-        sourceTask: true,
-        targetTask: true,
-      },
-    });
-
-    return NextResponse.json(updatedDependencies);
+    return NextResponse.json(createdDependencies);
 
   } catch (error) {
-    console.error('Batch update dependencies error:', error);
+    console.error('Batch create task dependencies error:', error);
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: 'Invalid request data', details: error.errors }, { status: 400 });
     }
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2002') {
+        return NextResponse.json({ error: 'Dependency already exists' }, { status: 409 });
+      }
       return NextResponse.json({ error: 'Database error', code: error.code }, { status: 400 });
     }
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Internal server error' }, { status: 500 });

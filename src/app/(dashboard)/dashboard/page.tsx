@@ -1,7 +1,8 @@
 import { Metadata } from "next"
 import { redirect } from "next/navigation"
 import { getServerSession } from "next-auth"
-import { authConfig } from "@/auth.config"
+import { authOptions } from "@/lib/auth"
+import { Session } from "next-auth"
 
 export const metadata: Metadata = {
   title: "Dashboard | Resource and Project Management System",
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
  * Dashboard page component
  */
 export default async function DashboardPage() {
-  const session = await getServerSession(authConfig)
+  const session = await getServerSession(authOptions) as Session | null
 
   if (!session) {
     redirect("/auth/signin")

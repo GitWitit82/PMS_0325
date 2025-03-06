@@ -28,8 +28,8 @@ interface WorkflowPhaseListProps {
 
 export default function WorkflowPhaseList({ workflowId }: WorkflowPhaseListProps) {
   const [expandedPhase, setExpandedPhase] = useState<string | null>(null);
-  const [selectedPhase, setSelectedPhase] = useState<WorkflowPhaseTableItem | null>(null);
-  const [selectedTask, setSelectedTask] = useState<WorkflowTaskTableItem | null>(null);
+  const [selectedPhase, setSelectedPhase] = useState<WorkflowPhaseTableItem | undefined>(undefined);
+  const [selectedTask, setSelectedTask] = useState<WorkflowTaskTableItem | undefined>(undefined);
   const [isPhaseFormOpen, setIsPhaseFormOpen] = useState(false);
   const [isTaskFormOpen, setIsTaskFormOpen] = useState(false);
   const queryClient = useQueryClient();
@@ -174,7 +174,7 @@ export default function WorkflowPhaseList({ workflowId }: WorkflowPhaseListProps
       await createPhase.mutateAsync(data);
     }
     setIsPhaseFormOpen(false);
-    setSelectedPhase(null);
+    setSelectedPhase(undefined);
   };
 
   const handleTaskSubmit = async (data: WorkflowTaskFormData) => {
@@ -184,8 +184,16 @@ export default function WorkflowPhaseList({ workflowId }: WorkflowPhaseListProps
       await createTask.mutateAsync({ phaseId: expandedPhase!, data });
     }
     setIsTaskFormOpen(false);
-    setSelectedTask(null);
+    setSelectedTask(undefined);
   };
+
+  const transformedPhase = selectedPhase ? {
+    id: selectedPhase.id,
+    name: selectedPhase.name,
+    description: selectedPhase.description || undefined,
+    order: selectedPhase.order,
+    estimatedDuration: selectedPhase.estimatedDuration || undefined,
+  } : undefined
 
   if (isPhasesLoading) {
     return <div className="p-4 text-center">Loading phases...</div>;
@@ -195,8 +203,11 @@ export default function WorkflowPhaseList({ workflowId }: WorkflowPhaseListProps
     return (
       <div className="p-4 text-center">
         <p className="text-muted-foreground mb-4">No phases defined for this workflow</p>
-        <Button onClick={() => setIsPhaseFormOpen(true)}>
-          <PlusIcon className="mr-2 h-4 w-4" />
+        <Button onClick={() => {
+          setSelectedPhase(undefined);
+          setIsPhaseFormOpen(true);
+        }}>
+          <PlusIcon className="h-4 w-4 mr-2" />
           Add Phase
         </Button>
       </div>
@@ -206,9 +217,12 @@ export default function WorkflowPhaseList({ workflowId }: WorkflowPhaseListProps
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold">Workflow Phases</h3>
-        <Button onClick={() => setIsPhaseFormOpen(true)}>
-          <PlusIcon className="mr-2 h-4 w-4" />
+        <h2 className="text-2xl font-bold tracking-tight">Phases</h2>
+        <Button onClick={() => {
+          setSelectedPhase(undefined);
+          setIsPhaseFormOpen(true);
+        }}>
+          <PlusIcon className="h-4 w-4 mr-2" />
           Add Phase
         </Button>
       </div>
@@ -351,7 +365,7 @@ export default function WorkflowPhaseList({ workflowId }: WorkflowPhaseListProps
         open={isPhaseFormOpen}
         onOpenChange={setIsPhaseFormOpen}
         workflowId={workflowId}
-        phase={selectedPhase}
+        phase={transformedPhase}
         onSubmit={handlePhaseSubmit}
       />
 

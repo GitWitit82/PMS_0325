@@ -1,22 +1,22 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
-interface RouteParams {
-  params: {
-    workflowId: string;
-  };
-}
-
-export async function GET(request: Request, { params }: RouteParams) {
+export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
       return new NextResponse('Unauthorized', { status: 401 });
     }
 
-    const { workflowId } = params;
+    // Get workflowId from URL
+    const pathParts = new URL(request.url).pathname.split('/');
+    const workflowId = pathParts[pathParts.indexOf('workflows') + 1];
+
+    if (!workflowId) {
+      return new NextResponse('Workflow ID is required', { status: 400 });
+    }
 
     const phases = await prisma.workflowPhase.findMany({
       where: {
@@ -41,14 +41,21 @@ export async function GET(request: Request, { params }: RouteParams) {
   }
 }
 
-export async function POST(request: Request, { params }: RouteParams) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
       return new NextResponse('Unauthorized', { status: 401 });
     }
 
-    const { workflowId } = params;
+    // Get workflowId from URL
+    const pathParts = new URL(request.url).pathname.split('/');
+    const workflowId = pathParts[pathParts.indexOf('workflows') + 1];
+
+    if (!workflowId) {
+      return new NextResponse('Workflow ID is required', { status: 400 });
+    }
+
     const json = await request.json();
     const { name, description, order, estimatedDuration } = json;
 

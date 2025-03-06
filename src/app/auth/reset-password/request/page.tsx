@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
@@ -27,7 +26,6 @@ const resetSchema = z.object({
 type ResetFormData = z.infer<typeof resetSchema>
 
 export default function RequestReset() {
-  const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
@@ -70,7 +68,7 @@ export default function RequestReset() {
       <CardHeader>
         <CardTitle>Reset Password</CardTitle>
         <CardDescription>
-          Enter your email address and we'll send you a link to reset your password
+          Enter your email address and we&apos;ll send you a link to reset your password
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -82,7 +80,7 @@ export default function RequestReset() {
         {success ? (
           <Alert className="mb-4">
             <AlertDescription>
-              If an account exists with that email, we've sent password reset instructions.
+              If an account exists with that email, we&apos;ve sent password reset instructions.
             </AlertDescription>
           </Alert>
         ) : (

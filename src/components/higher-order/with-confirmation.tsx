@@ -48,7 +48,7 @@ export function withConfirmation<T extends WithConfirmationProps>(
       <>
         <WrappedComponent
           {...props}
-          onConfirm={(action) => handleAction(action)}
+          onConfirm={(action: () => Promise<void>) => handleAction(action)}
         />
         <AlertDialog open={isOpen} onOpenChange={setIsOpen}>
           <AlertDialogContent>

@@ -44,11 +44,12 @@ export default function WorkflowTable({
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
+              <TableHead>Description</TableHead>
               <TableHead>Version</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Phases</TableHead>
               <TableHead>Created By</TableHead>
-              <TableHead>Last Updated</TableHead>
+              <TableHead>Created At</TableHead>
+              <TableHead>Updated At</TableHead>
               <TableHead className="w-[100px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -61,14 +62,15 @@ export default function WorkflowTable({
                   onClick={() => setSelectedWorkflow(selectedWorkflow?.id === workflow.id ? null : workflow)}
                 >
                   <TableCell className="font-medium">{workflow.name}</TableCell>
+                  <TableCell>{workflow.description}</TableCell>
                   <TableCell>{workflow.version}</TableCell>
                   <TableCell>
-                    <Badge variant={workflow.isActive ? "success" : "secondary"}>
+                    <Badge variant={workflow.isActive ? "default" : "secondary"}>
                       {workflow.isActive ? "Active" : "Inactive"}
                     </Badge>
                   </TableCell>
-                  <TableCell>{workflow._count?.phases || 0} phases</TableCell>
-                  <TableCell>{workflow.createdBy.name}</TableCell>
+                  <TableCell>{workflow.createdBy.name || workflow.createdBy.email}</TableCell>
+                  <TableCell>{formatDate(workflow.createdAt)}</TableCell>
                   <TableCell>{formatDate(workflow.updatedAt)}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">

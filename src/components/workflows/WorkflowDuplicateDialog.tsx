@@ -25,22 +25,22 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Workflow } from '@/types/workflow';
+import { type WorkflowTableItem } from "@/types/workflow"
+
+interface WorkflowDuplicateDialogProps {
+  workflow: WorkflowTableItem
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}
 
 const formSchema = z.object({
   name: z.string().min(1, 'Name is required').max(255).trim(),
   description: z.string().max(1000).trim().optional(),
-  version: z.string().min(1).max(50).trim().default('1.0'),
-  isActive: z.boolean().default(true),
-});
+  version: z.string().min(1, 'Version is required'),
+  isActive: z.boolean(),
+})
 
-type FormData = z.infer<typeof formSchema>;
-
-interface WorkflowDuplicateDialogProps {
-  workflow: Workflow;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}
+type FormData = z.infer<typeof formSchema>
 
 export function WorkflowDuplicateDialog({
   workflow,
@@ -55,7 +55,7 @@ export function WorkflowDuplicateDialog({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: `${workflow.name} (Copy)`,
-      description: workflow.description,
+      description: workflow.description || '',
       version: '1.0',
       isActive: true,
     },

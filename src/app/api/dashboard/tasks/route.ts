@@ -1,5 +1,6 @@
-import { prisma } from "@/lib/db"
+import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
+import { TaskStatus } from "@prisma/client"
 
 /**
  * GET handler for upcoming tasks
@@ -11,7 +12,7 @@ export async function GET(req: Request) {
 
     const upcomingTasks = await prisma.projectTask.findMany({
       where: {
-        status: { in: ["NOT_STARTED", "IN_PROGRESS"] },
+        status: { in: [TaskStatus.TODO, TaskStatus.IN_PROGRESS] },
         ...(userId ? { assignedToId: userId } : {}),
         scheduledStart: {
           lte: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // Next 7 days
